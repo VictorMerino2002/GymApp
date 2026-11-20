@@ -1,0 +1,214 @@
+service: gym-api
+
+provider:
+  name: aws
+  runtime: provided.al2023
+  architecture: arm64
+  region: ${opt:region, 'eu-west-1'}
+  stage: ${opt:stage, 'dev'}
+  memorySize: 256
+  timeout: 10
+  logRetentionInDays: 14
+  environment:
+    RUST_LOG: info
+    USERS_TABLE: ${self:custom.tables.users}
+    EXERCISES_TABLE: ${self:custom.tables.exercises}
+    EXERCISE_HISTORY_TABLE: ${self:custom.tables.exerciseHistory}
+    ROUTINES_TABLE: ${self:custom.tables.routines}
+    SESSIONS_TABLE: ${self:custom.tables.sessions}
+    FAV_ROUTINES_TABLE: ${self:custom.tables.favRoutines}
+    FAV_SESSIONS_TABLE: ${self:custom.tables.favSessions}
+    FRIENDSHIPS_TABLE: ${self:custom.tables.friendships}
+  iam:
+    role:
+      statements:
+        - Effect: Allow
+          Action:
+            - dynamodb:GetItem
+            - dynamodb:PutItem
+            - dynamodb:UpdateItem
+            - dynamodb:DeleteItem
+            - dynamodb:Query
+            - dynamodb:Scan
+            - dynamodb:BatchGetItem
+            - dynamodb:BatchWriteItem
+            - dynamodb:ConditionCheckItem
+          Resource:
+            - arn:aws:dynamodb:${aws:region}:${aws:accountId}:table/${self:service}-${sls:stage}-*
+            - arn:aws:dynamodb:${aws:region}:${aws:accountId}:table/${self:service}-${sls:stage}-*/index/*
+
+custom:
+  tables:
+    users: ${self:service}-${sls:stage}-users
+    exercises: ${self:service}-${sls:stage}-exercises
+    exerciseHistory: ${self:service}-${sls:stage}-exercise-history
+    routines: ${self:service}-${sls:stage}-routines
+    sessions: ${self:service}-${sls:stage}-sessions
+    favRoutines: ${self:service}-${sls:stage}-fav-routines
+    favSessions: ${self:service}-${sls:stage}-fav-sessions
+    friendships: ${self:service}-${sls:stage}-friendships
+
+package:
+  individually: true
+
+functions:
+  api:
+    handler: bootstrap
+    package:
+      artifact: target/lambda/api/bootstrap.zip
+    events:
+      - httpApi: '*'
+
+resources:
+  Resources:
+    UsersTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:custom.tables.users}
+        BillingMode: PAY_PER_REQUEST
+        AttributeDefinitions:
+          - AttributeName: id
+            AttributeType: S
+          - AttributeName: username
+            AttributeType: S
+        KeySchema:
+          - AttributeName: id
+            KeyType: HASH
+        GlobalSecondaryIndexes:
+          - IndexName: username-index
+            KeySchema:
+              - AttributeName: username
+                KeyType: HASH
+            Projection:
+              ProjectionType: ALL
+
+    ExercisesTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:custom.tables.exercises}
+        BillingMode: PAY_PER_REQUEST
+        AttributeDefinitions:
+          - AttributeName: id
+            AttributeType: S
+        KeySchema:
+          - AttributeName: id
+            KeyType: HASH
+
+    ExerciseHistoryTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:custom.tables.exerciseHistory}
+        BillingMode: PAY_PER_REQUEST
+        AttributeDefinitions:
+          - AttributeName: user_id
+            AttributeType: S
+          - AttributeName: sk
+            AttributeType: S
+        KeySchema:
+          - AttributeName: user_id
+            KeyType: HASH
+          - AttributeName: sk
+            KeyType: RANGE
+
+    RoutinesTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:custom.tables.routines}
+        BillingMode: PAY_PER_REQUEST
+        AttributeDefinitions:
+          - AttributeName: id
+            AttributeType: S
+          - AttributeName: author_id
+            AttributeType: S
+          - AttributeName: created_at
+            AttributeType: S
+        KeySchema:
+          - AttributeName: id
+            KeyType: HASH
+        GlobalSecondaryIndexes:
+          - IndexName: author-index
+            KeySchema:
+              - AttributeName: author_id
+                KeyType: HASH
+              - AttributeName: created_at
+                KeyType: RANGE
+            Projection:
+              ProjectionType: ALL
+
+    SessionsTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:custom.tables.sessions}
+        BillingMode: PAY_PER_REQUEST
+        AttributeDefinitions:
+          - AttributeName: id
+            AttributeType: S
+          - AttributeName: author_id
+            AttributeType: S
+        KeySchema:
+          - AttributeName: id
+            KeyType: HASH
+        GlobalSecondaryIndexes:
+          - IndexName: author-index
+            KeySchema:
+              - AttributeName: author_id
+                KeyType: HASH
+            Projection:
+              ProjectionType: ALL
+
+    FavRoutinesTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:custom.tables.favRoutines}
+        BillingMode: PAY_PER_REQUEST
+        AttributeDefinitions:
+          - AttributeName: user_id
+            AttributeType: S
+          - AttributeName: routine_id
+            AttributeType: S
+        KeySchema:
+          - AttributeName: user_id
+            KeyType: HASH
+          - AttributeName: routine_id
+            KeyType: RANGE
+
+    FavSessionsTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:custom.tables.favSessions}
+        BillingMode: PAY_PER_REQUEST
+        AttributeDefinitions:
+          - AttributeName: user_id
+            AttributeType: S
+          - AttributeName: session_id
+            AttributeType: S
+        KeySchema:
+          - AttributeName: user_id
+            KeyType: HASH
+          - AttributeName: session_id
+            KeyType: RANGE
+
+    FriendshipsTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:custom.tables.friendships}
+        BillingMode: PAY_PER_REQUEST
+        AttributeDefinitions:
+          - AttributeName: user1_id
+            AttributeType: S
+          - AttributeName: user2_id
+            AttributeType: S
+        KeySchema:
+          - AttributeName: user1_id
+            KeyType: HASH
+          - AttributeName: user2_id
+            KeyType: RANGE
+        GlobalSecondaryIndexes:
+          - IndexName: user2-index
+            KeySchema:
+              - AttributeName: user2_id
+                KeyType: HASH
+              - AttributeName: user1_id
+                KeyType: RANGE
+            Projection:
+              ProjectionType: ALL
