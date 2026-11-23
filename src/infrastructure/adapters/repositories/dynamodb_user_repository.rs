@@ -1,6 +1,5 @@
 use async_trait::async_trait;
-use aws_sdk_dynamodb::{Client, error::DisplayErrorContext, types::AttributeValue};
-use lambda_http::tracing;
+use aws_sdk_dynamodb::{Client, types::AttributeValue};
 
 use crate::{
     application::ports::UserRepository,
@@ -26,10 +25,8 @@ impl DynamodbUserRepository {
 #[async_trait]
 impl UserRepository for DynamodbUserRepository {
     async fn save(&self, user: &User) -> Result<(), Error> {
-        let item = serde_dynamo::to_item(user).map_err(|e| {
-            tracing::error!("Failed to serialize user {}: {e}", user.id);
-            Error::internal_server("Could not save user")
-        })?;
+        let item = serde_dynamo::to_item(user)
+            .map_err(|_| Error::internal_server("Could not save user"))?;
 
         self.client
             .put_item()
@@ -37,10 +34,7 @@ impl UserRepository for DynamodbUserRepository {
             .set_item(Some(item))
             .send()
             .await
-            .map_err(|e| {
-                tracing::error!("Failed to save user {}: {}", user.id, DisplayErrorContext(&e));
-                Error::internal_server("Could not save user")
-            })?;
+            .map_err(|_| Error::internal_server("Could not save user"))?;
 
         Ok(())
     }
@@ -53,18 +47,13 @@ impl UserRepository for DynamodbUserRepository {
             .key("id", AttributeValue::S(id.to_string()))
             .send()
             .await
-            .map_err(|e| {
-                tracing::error!("Failed to get user {id}: {}", DisplayErrorContext(&e));
-                Error::internal_server("Could not get user")
-            })?;
+            .map_err(|_| Error::internal_server("Could not get user"))?;
 
         output
             .item
             .map(|item| {
-                serde_dynamo::from_item(item).map_err(|e| {
-                    tracing::error!("Failed to deserialize user {id}: {e}");
-                    Error::internal_server("Could not get user")
-                })
+                serde_dynamo::from_item(item)
+                    .map_err(|_| Error::internal_server("Could not get user"))
             })
             .transpose()
     }
@@ -80,22 +69,14 @@ impl UserRepository for DynamodbUserRepository {
             .limit(1)
             .send()
             .await
-            .map_err(|e| {
-                tracing::error!(
-                    "Failed to query user by username {username}: {}",
-                    DisplayErrorContext(&e)
-                );
-                Error::internal_server("Could not get user")
-            })?;
+            .map_err(|_| Error::internal_server("Could not get user"))?;
 
         output
             .items
             .and_then(|items| items.into_iter().next())
             .map(|item| {
-                serde_dynamo::from_item(item).map_err(|e| {
-                    tracing::error!("Failed to deserialize user {username}: {e}");
-                    Error::internal_server("Could not get user")
-                })
+                serde_dynamo::from_item(item)
+                    .map_err(|_| Error::internal_server("Could not get user"))
             })
             .transpose()
     }

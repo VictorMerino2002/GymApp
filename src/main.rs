@@ -1,25 +1,28 @@
-use axum::Router;
+use std::sync::Arc;
 
-use crate::infrastructure::bootstrap::AppState;
+use crate::{
+    application::ports::ApiListener,
+    infrastructure::{
+        adapters::{LambdaApiListener, LocalApiListener},
+        bootstrap::AppState,
+        http::routes::router,
+    },
+};
 
 mod application;
 mod domain;
 mod infrastructure;
 
-async fn router() -> Router {
-    Router::new()
-}
-
 #[tokio::main]
 async fn main() -> Result<(), lambda_http::Error> {
-    let router = router().await;
-    let app_state = AppState::default().await;
+    let app_state = Arc::new(AppState::default().await);
+    let router = router(app_state);
 
-    let app_state = if std::env::var("AWS_LAMBDA_FUNCTION_NAME").is_ok() {
-        app_state.set_lambda_api(router)
+    let api_listener: Box<dyn ApiListener> = if std::env::var("AWS_LAMBDA_FUNCTION_NAME").is_ok() {
+        Box::new(LambdaApiListener::new(router))
     } else {
-        app_state.set_local_api("0.0.0.0:8080", router)
+        Box::new(LocalApiListener::new("0.0.0.0:8080", router))
     };
 
-    app_state.run_api().await
+    api_listener.run().await
 }

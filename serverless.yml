@@ -11,6 +11,7 @@ provider:
   logRetentionInDays: 14
   environment:
     RUST_LOG: info
+    JWT_SECRET: ${ssm:/${self:service}/${sls:stage}/jwt-secret}
     USERS_TABLE: ${self:custom.tables.users}
     EXERCISES_TABLE: ${self:custom.tables.exercises}
     EXERCISE_HISTORY_TABLE: ${self:custom.tables.exerciseHistory}

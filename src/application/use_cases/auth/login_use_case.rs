@@ -1,32 +1,39 @@
+use std::sync::Arc;
+
 use crate::{
-    application::ports::JwtEncoderPort,
-    domain::value_objects::{Error, Jwt},
+    application::{
+        ports::{JwtEncoderPort, UserRepository},
+        use_cases::auth::{
+            GenerateAuthUseCase, GenerateAuthUseCaseParams, GenerateAuthUseCaseResponse,
+        },
+    },
+    domain::value_objects::Error,
 };
 
 pub struct LoginUseCase {
-    pub jwt_encoder: Box<dyn JwtEncoderPort>,
+    pub jwt_encoder: Arc<dyn JwtEncoderPort>,
+    pub user_repository: Arc<dyn UserRepository>,
 }
 
 pub struct LoginUseCaseParams {
     pub username: String,
 }
 
-pub struct LoginUseCaseResponse {
-    pub access: String,
-    pub refresh: String,
-}
-
-impl LoginUseCaseParams {
-    pub fn new(username: impl Into<String>) -> Self {
-        Self {
-            username: username.into(),
-        }
-    }
-}
-
 impl LoginUseCase {
-    pub fn execute(&self, params: LoginUseCaseParams) -> Result<String, Error> {
-        let jwt = Jwt::new(&params.username);
-        self.jwt_encoder.encode(&jwt)
+    pub async fn execute(
+        &self,
+        params: LoginUseCaseParams,
+    ) -> Result<GenerateAuthUseCaseResponse, Error> {
+        let user = self
+            .user_repository
+            .find_by_username(&params.username)
+            .await?
+            .ok_or_else(|| Error::unauthorized("Invalid credentials"))?;
+
+        let generate_auth_use_case = GenerateAuthUseCase {
+            jwt_encoder: Arc::clone(&self.jwt_encoder),
+        };
+
+        generate_auth_use_case.execute(&GenerateAuthUseCaseParams { user_id: user.id })
     }
 }

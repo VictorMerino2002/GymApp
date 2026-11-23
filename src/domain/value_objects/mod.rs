@@ -7,5 +7,5 @@ mod muscle;
 pub use author::Author;
 pub use difficulty_level::DifficultyLevel;
 pub use error::Error;
-pub use jwt::Jwt;
+pub use jwt::{Jwt, TokenType};
 pub use muscle::Muscle;
