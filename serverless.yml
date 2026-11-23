@@ -3,7 +3,7 @@ service: gym-api
 provider:
   name: aws
   runtime: provided.al2023
-  architecture: arm64
+  architecture: x86_64
   region: ${opt:region, 'eu-west-1'}
   stage: ${opt:stage, 'dev'}
   memorySize: 256
