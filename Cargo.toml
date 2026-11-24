@@ -17,4 +17,6 @@ aws-config = { version = "1.13.3", features = ["behavior-version-latest"] }
 aws-sdk-dynamodb = "1.140.0"
 serde_dynamo = { version = "4.3.0", features = ["aws-sdk-dynamodb+1"] }
 
+argon2 = "0.5"
+password-hash = { version = "0.5", features = ["getrandom"] }
 uuid = { version = "1", features = ["v4", "v7"] }

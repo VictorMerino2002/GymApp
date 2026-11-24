@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use crate::{
     application::{
-        ports::{JwtEncoderPort, repositories::UserRepository},
+        ports::{JwtEncoderPort, PasswordHasherPort, repositories::UserRepository},
         use_cases::auth::{
             GenerateAuthUseCase, GenerateAuthUseCaseParams, GenerateAuthUseCaseResponse,
         },
@@ -13,10 +13,12 @@ use crate::{
 pub struct LoginUseCase {
     pub jwt_encoder: Arc<dyn JwtEncoderPort>,
     pub user_repository: Arc<dyn UserRepository>,
+    pub password_hasher: Arc<dyn PasswordHasherPort>,
 }
 
 pub struct LoginUseCaseParams {
     pub username: String,
+    pub password: String,
 }
 
 impl LoginUseCase {
@@ -27,8 +29,22 @@ impl LoginUseCase {
         let user = self
             .user_repository
             .find_by_username(&params.username)
+            .await?;
+
+        let Some((user, password_hash)) =
+            user.and_then(|user| user.password_hash.clone().map(|hash| (user, hash)))
+        else {
+            self.password_hasher.hash(&params.password).await?;
+            return Err(Error::unauthorized("Invalid credentials"));
+        };
+
+        if !self
+            .password_hasher
+            .verify(&params.password, &password_hash)
             .await?
-            .ok_or_else(|| Error::unauthorized("Invalid credentials"))?;
+        {
+            return Err(Error::unauthorized("Invalid credentials"));
+        }
 
         let generate_auth_use_case = GenerateAuthUseCase {
             jwt_encoder: Arc::clone(&self.jwt_encoder),

@@ -17,11 +17,13 @@ use crate::{
 #[derive(Deserialize)]
 pub struct LoginRequest {
     username: String,
+    password: String,
 }
 
 #[derive(Deserialize)]
 pub struct RegisterRequest {
     username: String,
+    password: String,
 }
 
 #[derive(Serialize)]
@@ -46,10 +48,12 @@ pub async fn login(
     let use_case = LoginUseCase {
         jwt_encoder: app_state.jwt_encoder.clone(),
         user_repository: app_state.user_repository.clone(),
+        password_hasher: app_state.password_hasher.clone(),
     };
 
     let params = LoginUseCaseParams {
         username: payload.username,
+        password: payload.password,
     };
 
     let result = use_case.execute(params).await.map(AuthResponse::from);
@@ -63,10 +67,12 @@ pub async fn register(
     let use_case = RegisterUseCase {
         jwt_encoder: app_state.jwt_encoder.clone(),
         user_repository: app_state.user_repository.clone(),
+        password_hasher: app_state.password_hasher.clone(),
     };
 
     let params = RegisterUseCaseParams {
         username: payload.username,
+        password: payload.password,
     };
 
     let result = use_case.execute(params).await.map(AuthResponse::from);

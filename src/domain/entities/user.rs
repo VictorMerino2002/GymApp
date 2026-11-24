@@ -22,6 +22,8 @@ pub struct User {
     pub role: Role,
     #[serde(default)]
     pub personal_records: HashMap<String, PersonalRecord>,
+    #[serde(default)]
+    pub password_hash: Option<String>,
 }
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -70,7 +72,7 @@ pub fn xp_for_level(level: u32) -> u32 {
 }
 
 impl User {
-    pub fn new(username: impl Into<String>) -> Self {
+    pub fn new(username: impl Into<String>, password_hash: impl Into<String>) -> Self {
         Self {
             id: Uuid::new_v4().into(),
             username: username.into(),
@@ -78,6 +80,7 @@ impl User {
             stats: Stats::default(),
             role: Role::User,
             personal_records: HashMap::new(),
+            password_hash: Some(password_hash.into()),
         }
     }
 

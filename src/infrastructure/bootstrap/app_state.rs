@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use crate::{
     application::ports::{
-        JwtEncoderPort,
+        JwtEncoderPort, PasswordHasherPort,
         repositories::{
             ExerciseHistoryRepository, ExerciseRepository, FavRoutineRepository,
             FavSessionRepository, FriendshipRepository, RoutineRepository, SessionRepository,
@@ -10,7 +10,7 @@ use crate::{
         },
     },
     infrastructure::adapters::{
-        JwtEncoder,
+        Argon2PasswordHasher, JwtEncoder,
         repositories::{
             DynamodbExerciseHistoryRepository, DynamodbExerciseRepository,
             DynamodbFavRoutineRepository, DynamodbFavSessionRepository,
@@ -30,6 +30,7 @@ pub struct AppState {
     pub fav_session_repository: Arc<dyn FavSessionRepository>,
     pub friendship_repository: Arc<dyn FriendshipRepository>,
     pub jwt_encoder: Arc<dyn JwtEncoderPort>,
+    pub password_hasher: Arc<dyn PasswordHasherPort>,
 }
 
 impl AppState {
@@ -77,6 +78,7 @@ impl AppState {
             fav_session_repository: Arc::new(fav_session_repository),
             friendship_repository: Arc::new(friendship_repository),
             jwt_encoder: Arc::new(jwt_encoder),
+            password_hasher: Arc::new(Argon2PasswordHasher),
         }
     }
 }
