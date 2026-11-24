@@ -2,8 +2,10 @@ pub mod auth_routes;
 pub mod exercise_routes;
 pub mod fav_routine_routes;
 pub mod fav_session_routes;
+pub mod friendship_routes;
 pub mod routine_routes;
 pub mod session_routes;
+pub mod user_routes;
 
 use std::sync::Arc;
 
@@ -69,6 +71,17 @@ pub fn router(app_state: Arc<AppState>) -> Router {
             "/me/favorite-sessions",
             get(fav_session_routes::list_fav_sessions),
         )
+        .route(
+            "/friends/{user_id}",
+            post(friendship_routes::send_friend_request)
+                .delete(friendship_routes::remove_friendship),
+        )
+        .route(
+            "/friends/{user_id}/accept",
+            post(friendship_routes::accept_friend_request),
+        )
+        .route("/me/friends", get(friendship_routes::list_friends))
+        .route("/users", get(user_routes::list_users))
         .route_layer(from_extractor_with_state::<AuthUser, _>(app_state.clone()));
 
     public_routes.merge(protected_routes).with_state(app_state)

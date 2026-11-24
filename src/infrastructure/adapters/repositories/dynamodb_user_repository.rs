@@ -1,12 +1,24 @@
+use std::collections::HashMap;
+
 use async_trait::async_trait;
 use aws_sdk_dynamodb::{Client, types::AttributeValue};
 
 use crate::{
     application::ports::repositories::UserRepository,
-    domain::{entities::User, value_objects::Error},
+    domain::{
+        entities::User,
+        value_objects::{Error, Page},
+    },
+    infrastructure::adapters::repositories::{
+        dynamodb_batch::batch_get_by_ids,
+        dynamodb_pagination::{Item, collect_page},
+    },
 };
 
 const USERNAME_INDEX: &str = "username-index";
+const USERNAME_SEARCH_INDEX: &str = "username-search-index";
+const SEARCH_PARTITION: &str = "user";
+const CURSOR_SEPARATOR: char = '#';
 
 pub struct DynamodbUserRepository {
     client: Client,
@@ -22,11 +34,44 @@ impl DynamodbUserRepository {
     }
 }
 
+fn search_cursor(item: &Item) -> Option<String> {
+    let username_lower = item.get("username_lower")?.as_s().ok()?;
+    let id = item.get("id")?.as_s().ok()?;
+    Some(format!("{username_lower}{CURSOR_SEPARATOR}{id}"))
+}
+
+fn search_start_key(cursor: &str) -> Result<Item, Error> {
+    let (username_lower, id) = cursor
+        .rsplit_once(CURSOR_SEPARATOR)
+        .ok_or_else(|| Error::bad_request("Invalid cursor"))?;
+
+    Ok(HashMap::from([
+        ("id".to_string(), AttributeValue::S(id.to_string())),
+        (
+            "search_pk".to_string(),
+            AttributeValue::S(SEARCH_PARTITION.to_string()),
+        ),
+        (
+            "username_lower".to_string(),
+            AttributeValue::S(username_lower.to_string()),
+        ),
+    ]))
+}
+
 #[async_trait]
 impl UserRepository for DynamodbUserRepository {
     async fn save(&self, user: &User) -> Result<(), Error> {
-        let item = serde_dynamo::to_item(user)
+        let mut item: Item = serde_dynamo::to_item(user)
             .map_err(|_| Error::internal_server("Could not save user"))?;
+
+        item.insert(
+            "search_pk".to_string(),
+            AttributeValue::S(SEARCH_PARTITION.to_string()),
+        );
+        item.insert(
+            "username_lower".to_string(),
+            AttributeValue::S(user.username.to_lowercase()),
+        );
 
         self.client
             .put_item()
@@ -58,6 +103,13 @@ impl UserRepository for DynamodbUserRepository {
             .transpose()
     }
 
+    async fn find_by_ids(&self, ids: &[String]) -> Result<Vec<User>, Error> {
+        let items =
+            batch_get_by_ids(&self.client, &self.table_name, ids, "Could not get users").await?;
+
+        serde_dynamo::from_items(items).map_err(|_| Error::internal_server("Could not get users"))
+    }
+
     async fn find_by_username(&self, username: &str) -> Result<Option<User>, Error> {
         let output = self
             .client
@@ -79,5 +131,50 @@ impl UserRepository for DynamodbUserRepository {
                     .map_err(|_| Error::internal_server("Could not get user"))
             })
             .transpose()
+    }
+
+    async fn search_by_username(
+        &self,
+        prefix: &str,
+        limit: u16,
+        cursor: Option<&str>,
+    ) -> Result<Page<User>, Error> {
+        let start_key = cursor.map(search_start_key).transpose()?;
+        let prefix = prefix.to_lowercase();
+
+        let page = collect_page(limit, start_key, search_cursor, |start_key| {
+            let request = self
+                .client
+                .query()
+                .table_name(&self.table_name)
+                .index_name(USERNAME_SEARCH_INDEX)
+                .key_condition_expression(
+                    "search_pk = :search_pk AND begins_with(username_lower, :prefix)",
+                )
+                .expression_attribute_values(
+                    ":search_pk",
+                    AttributeValue::S(SEARCH_PARTITION.to_string()),
+                )
+                .expression_attribute_values(":prefix", AttributeValue::S(prefix.clone()))
+                .limit(i32::from(limit))
+                .set_exclusive_start_key(start_key);
+
+            async move {
+                let output = request
+                    .send()
+                    .await
+                    .map_err(|_| Error::internal_server("Could not get users"))?;
+                Ok((output.items.unwrap_or_default(), output.last_evaluated_key))
+            }
+        })
+        .await?;
+
+        let items = serde_dynamo::from_items(page.items)
+            .map_err(|_| Error::internal_server("Could not get users"))?;
+
+        Ok(Page {
+            items,
+            next_cursor: page.next_cursor,
+        })
     }
 }
