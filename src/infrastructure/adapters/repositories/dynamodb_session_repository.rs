@@ -9,8 +9,9 @@ use crate::{
         entities::Session,
         value_objects::{Error, Muscle, Page},
     },
-    infrastructure::adapters::repositories::dynamodb_pagination::{
-        collect_page, id_key, muscle_value,
+    infrastructure::adapters::repositories::{
+        dynamodb_batch::batch_get_by_ids,
+        dynamodb_pagination::{collect_page, id_cursor, id_key, muscle_value},
     },
 };
 
@@ -51,6 +52,19 @@ impl SessionRepository for DynamodbSessionRepository {
             .transpose()
     }
 
+    async fn find_by_ids(&self, ids: &[String]) -> Result<Vec<Session>, Error> {
+        let items = batch_get_by_ids(
+            &self.client,
+            &self.table_name,
+            ids,
+            "Could not get sessions",
+        )
+        .await?;
+
+        serde_dynamo::from_items(items)
+            .map_err(|_| Error::internal_server("Could not get sessions"))
+    }
+
     async fn find_paginated(
         &self,
         limit: u16,
@@ -59,7 +73,7 @@ impl SessionRepository for DynamodbSessionRepository {
     ) -> Result<Page<Session>, Error> {
         let muscle = muscle.map(muscle_value).transpose()?;
 
-        let page = collect_page(limit, cursor.map(id_key), |start_key| {
+        let page = collect_page(limit, cursor.map(id_key), id_cursor, |start_key| {
             let mut request = self
                 .client
                 .scan()
@@ -110,7 +124,7 @@ impl SessionRepository for DynamodbSessionRepository {
             key
         });
 
-        let page = collect_page(limit, start_key, |start_key| {
+        let page = collect_page(limit, start_key, id_cursor, |start_key| {
             let mut request = self
                 .client
                 .query()

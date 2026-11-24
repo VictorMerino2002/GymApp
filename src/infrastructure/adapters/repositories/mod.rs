@@ -1,8 +1,11 @@
+mod dynamodb_batch;
 mod dynamodb_exercise_repository;
 mod dynamodb_pagination;
+mod dynamodb_routine_repository;
 mod dynamodb_session_repository;
 mod dynamodb_user_repository;
 
 pub use dynamodb_exercise_repository::DynamodbExerciseRepository;
+pub use dynamodb_routine_repository::DynamodbRoutineRepository;
 pub use dynamodb_session_repository::DynamodbSessionRepository;
 pub use dynamodb_user_repository::DynamodbUserRepository;

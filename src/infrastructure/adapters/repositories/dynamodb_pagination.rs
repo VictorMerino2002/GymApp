@@ -15,19 +15,25 @@ pub fn id_key(id: &str) -> Item {
     HashMap::from([("id".to_string(), AttributeValue::S(id.to_string()))])
 }
 
+pub fn id_cursor(item: &Item) -> Option<String> {
+    item.get("id").and_then(|id| id.as_s().ok()).cloned()
+}
+
 pub fn muscle_value(muscle: Muscle) -> Result<AttributeValue, Error> {
     serde_dynamo::to_attribute_value(muscle)
         .map_err(|_| Error::internal_server("Could not build muscle filter"))
 }
 
-pub async fn collect_page<F, Fut>(
+pub async fn collect_page<F, Fut, C>(
     limit: u16,
     start_key: Option<Item>,
+    cursor_of: C,
     mut fetch: F,
 ) -> Result<RawPage, Error>
 where
     F: FnMut(Option<Item>) -> Fut,
     Fut: Future<Output = Result<(Vec<Item>, Option<Item>), Error>>,
+    C: Fn(&Item) -> Option<String>,
 {
     let limit = usize::from(limit);
     let mut items = Vec::with_capacity(limit);
@@ -42,11 +48,7 @@ where
             items.truncate(limit);
 
             let next_cursor = if truncated || last_key.is_some() {
-                items
-                    .last()
-                    .and_then(|item| item.get("id"))
-                    .and_then(|id| id.as_s().ok())
-                    .cloned()
+                items.last().and_then(&cursor_of)
             } else {
                 None
             };

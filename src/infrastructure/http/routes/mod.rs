@@ -1,5 +1,6 @@
 pub mod auth_routes;
 pub mod exercise_routes;
+pub mod routine_routes;
 pub mod session_routes;
 
 use std::sync::Arc;
@@ -37,6 +38,16 @@ pub fn router(app_state: Arc<AppState>) -> Router {
             get(session_routes::get_session)
                 .put(session_routes::update_session)
                 .delete(session_routes::delete_session),
+        )
+        .route(
+            "/routines",
+            get(routine_routes::list_routines).post(routine_routes::create_routine),
+        )
+        .route(
+            "/routines/{id}",
+            get(routine_routes::get_routine)
+                .put(routine_routes::update_routine)
+                .delete(routine_routes::delete_routine),
         )
         .route_layer(from_extractor_with_state::<AuthUser, _>(app_state.clone()));
 
