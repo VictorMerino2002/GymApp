@@ -202,11 +202,7 @@ impl UserRepository for DynamodbUserRepository {
             .transpose()
     }
 
-    async fn update_progress(
-        &self,
-        user: &User,
-        expected_exercises_done: u32,
-    ) -> Result<bool, Error> {
+    async fn update_progress(&self, user: &User, expected_version: u32) -> Result<bool, Error> {
         let stats = serde_dynamo::to_attribute_value(user.stats)
             .map_err(|_| Error::internal_server("Could not update user stats"))?;
         let records = serde_dynamo::to_attribute_value(&user.personal_records)
@@ -218,15 +214,19 @@ impl UserRepository for DynamodbUserRepository {
             .table_name(&self.table_name)
             .key("id", AttributeValue::S(user.id.clone()))
             .update_expression("SET #stats = :stats, #records = :records")
-            .condition_expression("attribute_exists(id) AND #stats.#done = :expected")
+            .condition_expression(if expected_version == 0 {
+                "attribute_exists(id) AND (attribute_not_exists(#stats.#version) OR #stats.#version = :expected)"
+            } else {
+                "attribute_exists(id) AND #stats.#version = :expected"
+            })
             .expression_attribute_names("#stats", "stats")
             .expression_attribute_names("#records", "personal_records")
-            .expression_attribute_names("#done", "exercises_done")
+            .expression_attribute_names("#version", "progress_version")
             .expression_attribute_values(":stats", stats)
             .expression_attribute_values(":records", records)
             .expression_attribute_values(
                 ":expected",
-                AttributeValue::N(expected_exercises_done.to_string()),
+                AttributeValue::N(expected_version.to_string()),
             )
             .send()
             .await;

@@ -7,7 +7,7 @@ use crate::{
         ports::repositories::{
             ExerciseHistoryRepository, ExerciseRepository, SessionRepository, UserRepository,
         },
-        use_cases::exercise_history::user_progress::update_user_progress,
+        use_cases::user_progress::update_user_progress,
     },
     domain::{entities::ExerciseHistory, value_objects::Error},
 };

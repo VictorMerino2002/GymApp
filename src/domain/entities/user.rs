@@ -12,6 +12,7 @@ const MIN_PASSWORD_LENGTH: usize = 8;
 const MAX_PASSWORD_LENGTH: usize = 128;
 const MAX_PICTURE_URL_LENGTH: usize = 2048;
 const XP_PER_SET: u32 = 10;
+const XP_PER_SESSION: u32 = 50;
 const XP_PERSONAL_RECORD: u32 = 25;
 const XP_PER_STREAK_WEEK: u32 = 5;
 const MAX_STREAK_BONUS: u32 = 50;
@@ -45,6 +46,8 @@ pub struct Stats {
     pub last_workout_date: Option<NaiveDate>,
     #[serde(default)]
     pub xp_today: u32,
+    #[serde(default)]
+    pub progress_version: u32,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
@@ -149,35 +152,51 @@ impl User {
         reps: Option<u16>,
         today: NaiveDate,
     ) -> u32 {
-        let stats = &mut self.stats;
-        let mut xp = XP_PER_SET;
-
-        if stats.last_workout_date != Some(today) {
-            let this_week = week_start(today);
-
-            stats.streak_weeks = match stats.last_workout_date.map(week_start) {
-                Some(last_week) if last_week == this_week => stats.streak_weeks.max(1),
-                Some(last_week) if last_week == this_week - Duration::weeks(1) => {
-                    stats.streak_weeks + 1
-                }
-                _ => 1,
-            };
-            stats.last_workout_date = Some(today);
-            stats.xp_today = 0;
-
-            xp += (XP_PER_STREAK_WEEK * (stats.streak_weeks - 1)).min(MAX_STREAK_BONUS);
-        }
+        let mut xp = XP_PER_SET + self.register_workout_day(today);
 
         if self.update_personal_record(exercise_id, weight_kg, reps) {
             xp += XP_PERSONAL_RECORD;
         }
 
+        self.stats.exercises_done += 1;
+        self.award_xp(xp)
+    }
+
+    pub fn complete_session(&mut self, today: NaiveDate) -> u32 {
+        let xp = XP_PER_SESSION + self.register_workout_day(today);
+
+        self.stats.sessions_done += 1;
+        self.award_xp(xp)
+    }
+
+    fn register_workout_day(&mut self, today: NaiveDate) -> u32 {
+        let stats = &mut self.stats;
+
+        if stats.last_workout_date == Some(today) {
+            return 0;
+        }
+
+        let this_week = week_start(today);
+
+        stats.streak_weeks = match stats.last_workout_date.map(week_start) {
+            Some(last_week) if last_week == this_week => stats.streak_weeks.max(1),
+            Some(last_week) if last_week == this_week - Duration::weeks(1) => {
+                stats.streak_weeks + 1
+            }
+            _ => 1,
+        };
+        stats.last_workout_date = Some(today);
+        stats.xp_today = 0;
+
+        (XP_PER_STREAK_WEEK * (stats.streak_weeks - 1)).min(MAX_STREAK_BONUS)
+    }
+
+    fn award_xp(&mut self, xp: u32) -> u32 {
         let stats = &mut self.stats;
         let awarded = xp.min(DAILY_XP_CAP.saturating_sub(stats.xp_today));
 
         stats.xp_today += awarded;
         stats.xp += awarded;
-        stats.exercises_done += 1;
 
         awarded
     }

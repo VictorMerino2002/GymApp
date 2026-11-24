@@ -2,7 +2,6 @@ mod create_exercise_history_use_case;
 mod delete_exercise_history_use_case;
 mod get_exercise_history_use_case;
 mod list_exercise_history_use_case;
-mod user_progress;
 
 pub use create_exercise_history_use_case::{
     CreateExerciseHistoryUseCase, CreateExerciseHistoryUseCaseParams,

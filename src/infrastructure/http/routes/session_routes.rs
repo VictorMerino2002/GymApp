@@ -9,16 +9,16 @@ use serde::Deserialize;
 
 use crate::{
     application::use_cases::sessions::{
-        CreateSessionUseCase, CreateSessionUseCaseParams, DeleteSessionUseCase,
-        DeleteSessionUseCaseParams, GetSessionUseCase, GetSessionUseCaseParams,
-        ListSessionsUseCase, ListSessionsUseCaseParams, SessionExerciseInput, UpdateSessionUseCase,
-        UpdateSessionUseCaseParams,
+        CompleteSessionUseCase, CompleteSessionUseCaseParams, CreateSessionUseCase,
+        CreateSessionUseCaseParams, DeleteSessionUseCase, DeleteSessionUseCaseParams,
+        GetSessionUseCase, GetSessionUseCaseParams, ListSessionsUseCase, ListSessionsUseCaseParams,
+        SessionExerciseInput, UpdateSessionUseCase, UpdateSessionUseCaseParams,
     },
     domain::value_objects::Muscle,
     infrastructure::{
         bootstrap::AppState,
         http::{
-            extractors::{AdminUser, ApiJson, ApiQuery},
+            extractors::{AdminUser, ApiJson, ApiQuery, AuthUser},
             value_objects::ApiResponse,
         },
     },
@@ -143,6 +143,25 @@ pub async fn delete_session(
     };
 
     let params = DeleteSessionUseCaseParams { id };
+
+    let result = use_case.execute(params).await;
+    ApiResponse::default(result)
+}
+
+pub async fn complete_session(
+    State(app_state): State<Arc<AppState>>,
+    user: AuthUser,
+    Path(id): Path<String>,
+) -> impl IntoResponse {
+    let use_case = CompleteSessionUseCase {
+        session_repository: app_state.session_repository.clone(),
+        user_repository: app_state.user_repository.clone(),
+    };
+
+    let params = CompleteSessionUseCaseParams {
+        user_id: user.user_id,
+        session_id: id,
+    };
 
     let result = use_case.execute(params).await;
     ApiResponse::default(result)

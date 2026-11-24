@@ -19,11 +19,12 @@ where
             .await?
             .ok_or_else(|| Error::unauthorized("User not found"))?;
 
-        let expected_exercises_done = user.stats.exercises_done;
+        let expected_version = user.stats.progress_version;
         let result = apply(&mut user);
+        user.stats.progress_version = expected_version.wrapping_add(1);
 
         if user_repository
-            .update_progress(&user, expected_exercises_done)
+            .update_progress(&user, expected_version)
             .await?
         {
             return Ok(result);

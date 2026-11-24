@@ -3,7 +3,7 @@ use std::sync::Arc;
 use crate::{
     application::{
         ports::repositories::{ExerciseHistoryRepository, UserRepository},
-        use_cases::exercise_history::user_progress::update_user_progress,
+        use_cases::user_progress::update_user_progress,
     },
     domain::value_objects::Error,
 };

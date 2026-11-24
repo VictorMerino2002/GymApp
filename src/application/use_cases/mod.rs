@@ -7,4 +7,5 @@ pub mod friendships;
 pub mod me;
 pub mod routines;
 pub mod sessions;
+pub mod user_progress;
 pub mod users;

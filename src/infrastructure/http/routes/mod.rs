@@ -74,6 +74,10 @@ pub fn router(app_state: Arc<AppState>) -> Router {
                 .delete(routine_routes::delete_routine),
         )
         .route(
+            "/sessions/{id}/complete",
+            post(session_routes::complete_session),
+        )
+        .route(
             "/sessions/{id}/favorite",
             post(fav_session_routes::add_fav_session)
                 .delete(fav_session_routes::remove_fav_session),
