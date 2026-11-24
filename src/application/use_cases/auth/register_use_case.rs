@@ -62,6 +62,7 @@ impl RegisterUseCase {
         generate_auth_use_case.execute(&GenerateAuthUseCaseParams {
             user_id: new_user.id,
             role: new_user.role,
+            token_version: new_user.token_version,
         })
     }
 }

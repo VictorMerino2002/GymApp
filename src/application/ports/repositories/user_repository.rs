@@ -7,8 +7,9 @@ use async_trait::async_trait;
 #[async_trait]
 pub trait UserRepository: Send + Sync {
     async fn create(&self, user: &User) -> Result<(), Error>;
-    async fn save(&self, user: &User) -> Result<(), Error>;
+    async fn update(&self, user: &User) -> Result<(), Error>;
     async fn find_by_id(&self, id: &str) -> Result<Option<User>, Error>;
+    async fn increment_token_version(&self, user_id: &str) -> Result<(), Error>;
     async fn update_progress(
         &self,
         user: &User,

@@ -134,7 +134,7 @@ impl UserRepository for DynamodbUserRepository {
         }
     }
 
-    async fn save(&self, user: &User) -> Result<(), Error> {
+    async fn update(&self, user: &User) -> Result<(), Error> {
         self.client
             .put_item()
             .table_name(&self.table_name)
@@ -208,6 +208,32 @@ impl UserRepository for DynamodbUserRepository {
                 Ok(false)
             }
             Err(_) => Err(Error::internal_server("Could not update user stats")),
+        }
+    }
+
+    async fn increment_token_version(&self, user_id: &str) -> Result<(), Error> {
+        let result = self
+            .client
+            .update_item()
+            .table_name(&self.table_name)
+            .key("id", AttributeValue::S(user_id.to_string()))
+            .update_expression("ADD #version :one")
+            .condition_expression("attribute_exists(id)")
+            .expression_attribute_names("#version", "token_version")
+            .expression_attribute_values(":one", AttributeValue::N("1".to_string()))
+            .send()
+            .await;
+
+        match result {
+            Ok(_) => Ok(()),
+            Err(error)
+                if error
+                    .as_service_error()
+                    .is_some_and(|error| error.is_conditional_check_failed_exception()) =>
+            {
+                Err(Error::unauthorized("User not found"))
+            }
+            Err(_) => Err(Error::internal_server("Could not log out")),
         }
     }
 

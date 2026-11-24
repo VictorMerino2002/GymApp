@@ -26,6 +26,8 @@ pub struct User {
     pub personal_records: HashMap<String, PersonalRecord>,
     #[serde(default)]
     pub password_hash: Option<String>,
+    #[serde(default)]
+    pub token_version: u32,
 }
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -110,6 +112,7 @@ impl User {
             role: Role::User,
             personal_records: HashMap::new(),
             password_hash: Some(password_hash.into()),
+            token_version: 0,
         }
     }
 

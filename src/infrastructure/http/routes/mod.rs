@@ -21,9 +21,11 @@ use crate::infrastructure::{bootstrap::AppState, http::extractors::AuthUser};
 pub fn router(app_state: Arc<AppState>) -> Router {
     let public_routes = Router::new()
         .route("/auth/login", post(auth_routes::login))
-        .route("/auth/register", post(auth_routes::register));
+        .route("/auth/register", post(auth_routes::register))
+        .route("/auth/refresh", post(auth_routes::refresh));
 
     let protected_routes = Router::new()
+        .route("/auth/logout", post(auth_routes::logout))
         .route(
             "/exercises",
             get(exercise_routes::list_exercises).post(exercise_routes::create_exercise),

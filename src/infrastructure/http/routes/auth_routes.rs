@@ -5,12 +5,16 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     application::use_cases::auth::{
-        GenerateAuthUseCaseResponse, LoginUseCase, LoginUseCaseParams, RegisterUseCase,
+        GenerateAuthUseCaseResponse, LoginUseCase, LoginUseCaseParams, LogoutUseCase,
+        LogoutUseCaseParams, RefreshTokenUseCase, RefreshTokenUseCaseParams, RegisterUseCase,
         RegisterUseCaseParams,
     },
     infrastructure::{
         bootstrap::AppState,
-        http::{extractors::ApiJson, value_objects::ApiResponse},
+        http::{
+            extractors::{ApiJson, AuthUser},
+            value_objects::ApiResponse,
+        },
     },
 };
 
@@ -24,6 +28,11 @@ pub struct LoginRequest {
 pub struct RegisterRequest {
     username: String,
     password: String,
+}
+
+#[derive(Deserialize)]
+pub struct RefreshRequest {
+    refresh: String,
 }
 
 #[derive(Serialize)]
@@ -77,4 +86,34 @@ pub async fn register(
 
     let result = use_case.execute(params).await.map(AuthResponse::from);
     ApiResponse::default(result).with_code(StatusCode::CREATED)
+}
+
+pub async fn refresh(
+    State(app_state): State<Arc<AppState>>,
+    ApiJson(payload): ApiJson<RefreshRequest>,
+) -> impl IntoResponse {
+    let use_case = RefreshTokenUseCase {
+        jwt_encoder: app_state.jwt_encoder.clone(),
+        user_repository: app_state.user_repository.clone(),
+    };
+
+    let params = RefreshTokenUseCaseParams {
+        refresh_token: payload.refresh,
+    };
+
+    let result = use_case.execute(params).await.map(AuthResponse::from);
+    ApiResponse::default(result)
+}
+
+pub async fn logout(State(app_state): State<Arc<AppState>>, user: AuthUser) -> impl IntoResponse {
+    let use_case = LogoutUseCase {
+        user_repository: app_state.user_repository.clone(),
+    };
+
+    let params = LogoutUseCaseParams {
+        user_id: user.user_id,
+    };
+
+    let result = use_case.execute(params).await;
+    ApiResponse::default(result)
 }

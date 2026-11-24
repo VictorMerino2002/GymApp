@@ -17,16 +17,25 @@ pub struct Jwt {
     pub token_type: TokenType,
     #[serde(default)]
     pub role: Role,
+    #[serde(default)]
+    pub token_version: u32,
 }
 
 impl Jwt {
-    pub fn new(sub: impl Into<String>, role: Role, token_type: TokenType, hours: i64) -> Self {
-        let exp = (Utc::now() + Duration::hours(hours)).timestamp() as usize;
+    pub fn new(
+        sub: impl Into<String>,
+        role: Role,
+        token_version: u32,
+        token_type: TokenType,
+        ttl: Duration,
+    ) -> Self {
+        let exp = (Utc::now() + ttl).timestamp() as usize;
         Self {
             sub: sub.into(),
             exp,
             token_type,
             role,
+            token_version,
         }
     }
 }

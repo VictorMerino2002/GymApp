@@ -53,6 +53,7 @@ impl LoginUseCase {
         generate_auth_use_case.execute(&GenerateAuthUseCaseParams {
             user_id: user.id,
             role: user.role,
+            token_version: user.token_version,
         })
     }
 }
