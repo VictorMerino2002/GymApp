@@ -40,6 +40,13 @@ provider:
             - arn:aws:dynamodb:${aws:region}:${aws:accountId}:table/${self:service}-${sls:stage}-*/index/*
 
 custom:
+  throttling:
+    default:
+      rate: 50
+      burst: 100
+    auth:
+      rate: 5
+      burst: 10
   tables:
     users: ${self:service}-${sls:stage}-users
     activities: ${self:service}-${sls:stage}-activities
@@ -61,8 +68,31 @@ functions:
       artifact: target/lambda/api/bootstrap.zip
     events:
       - httpApi: '*'
+      - httpApi:
+          method: POST
+          path: /auth/login
+      - httpApi:
+          method: POST
+          path: /auth/register
 
 resources:
+  extensions:
+    HttpApiStage:
+      DependsOn:
+        - HttpApiRoutePostAuthLogin
+        - HttpApiRoutePostAuthRegister
+      Properties:
+        DefaultRouteSettings:
+          ThrottlingRateLimit: ${self:custom.throttling.default.rate}
+          ThrottlingBurstLimit: ${self:custom.throttling.default.burst}
+        RouteSettings:
+          POST /auth/login:
+            ThrottlingRateLimit: ${self:custom.throttling.auth.rate}
+            ThrottlingBurstLimit: ${self:custom.throttling.auth.burst}
+          POST /auth/register:
+            ThrottlingRateLimit: ${self:custom.throttling.auth.rate}
+            ThrottlingBurstLimit: ${self:custom.throttling.auth.burst}
+
   Resources:
     UsersTable:
       Type: AWS::DynamoDB::Table
