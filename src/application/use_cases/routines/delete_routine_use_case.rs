@@ -1,9 +1,13 @@
 use std::sync::Arc;
 
-use crate::{application::ports::repositories::RoutineRepository, domain::value_objects::Error};
+use crate::{
+    application::ports::repositories::{FavRoutineRepository, RoutineRepository},
+    domain::value_objects::Error,
+};
 
 pub struct DeleteRoutineUseCase {
     pub routine_repository: Arc<dyn RoutineRepository>,
+    pub fav_routine_repository: Arc<dyn FavRoutineRepository>,
 }
 
 pub struct DeleteRoutineUseCaseParams {
@@ -16,6 +20,10 @@ impl DeleteRoutineUseCase {
             .find_by_id(&params.id)
             .await?
             .ok_or_else(|| Error::not_found("Routine not found"))?;
+
+        self.fav_routine_repository
+            .delete_by_routine(&params.id)
+            .await?;
 
         self.routine_repository.delete(&params.id).await
     }

@@ -3,7 +3,10 @@ use std::{
     time::Duration,
 };
 
-use aws_sdk_dynamodb::{Client, types::KeysAndAttributes};
+use aws_sdk_dynamodb::{
+    Client,
+    types::{DeleteRequest, KeysAndAttributes, WriteRequest},
+};
 
 use crate::{
     domain::value_objects::Error,
@@ -11,7 +14,8 @@ use crate::{
 };
 
 const BATCH_GET_MAX_KEYS: usize = 100;
-const BATCH_GET_MAX_ATTEMPTS: u32 = 5;
+const BATCH_WRITE_MAX_ITEMS: usize = 25;
+const BATCH_MAX_ATTEMPTS: u32 = 5;
 
 pub async fn batch_get_by_ids(
     client: &Client,
@@ -50,7 +54,7 @@ pub async fn batch_get_by_ids(
                 None => break,
                 Some(unprocessed) => {
                     attempt += 1;
-                    if attempt >= BATCH_GET_MAX_ATTEMPTS {
+                    if attempt >= BATCH_MAX_ATTEMPTS {
                         return Err(Error::internal_server(error_message));
                     }
                     tokio::time::sleep(Duration::from_millis(50 * 2u64.pow(attempt))).await;
@@ -61,4 +65,50 @@ pub async fn batch_get_by_ids(
     }
 
     Ok(items)
+}
+
+pub async fn batch_delete_keys(
+    client: &Client,
+    table_name: &str,
+    keys: Vec<Item>,
+    error_message: &str,
+) -> Result<(), Error> {
+    for chunk in keys.chunks(BATCH_WRITE_MAX_ITEMS) {
+        let requests = chunk
+            .iter()
+            .map(|key| {
+                let delete = DeleteRequest::builder()
+                    .set_key(Some(key.clone()))
+                    .build()
+                    .map_err(|_| Error::internal_server(error_message))?;
+                Ok(WriteRequest::builder().delete_request(delete).build())
+            })
+            .collect::<Result<Vec<_>, Error>>()?;
+
+        let mut request_items = HashMap::from([(table_name.to_string(), requests)]);
+        let mut attempt = 0;
+
+        loop {
+            let output = client
+                .batch_write_item()
+                .set_request_items(Some(request_items))
+                .send()
+                .await
+                .map_err(|_| Error::internal_server(error_message))?;
+
+            match output.unprocessed_items.filter(|items| !items.is_empty()) {
+                None => break,
+                Some(unprocessed) => {
+                    attempt += 1;
+                    if attempt >= BATCH_MAX_ATTEMPTS {
+                        return Err(Error::internal_server(error_message));
+                    }
+                    tokio::time::sleep(Duration::from_millis(50 * 2u64.pow(attempt))).await;
+                    request_items = unprocessed;
+                }
+            }
+        }
+    }
+
+    Ok(())
 }

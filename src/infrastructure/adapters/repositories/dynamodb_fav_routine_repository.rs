@@ -9,8 +9,13 @@ use crate::{
         entities::FavRoutine,
         value_objects::{Error, Page},
     },
-    infrastructure::adapters::repositories::dynamodb_pagination::{Item, collect_page},
+    infrastructure::adapters::repositories::{
+        dynamodb_batch::batch_delete_keys,
+        dynamodb_pagination::{Item, collect_page},
+    },
 };
+
+const ROUTINE_INDEX: &str = "routine-index";
 
 pub struct DynamodbFavRoutineRepository {
     client: Client,
@@ -123,5 +128,30 @@ impl FavRoutineRepository for DynamodbFavRoutineRepository {
             .map_err(|_| Error::internal_server("Could not delete favorite routine"))?;
 
         Ok(())
+    }
+
+    async fn delete_by_routine(&self, routine_id: &str) -> Result<(), Error> {
+        let keys = self
+            .client
+            .query()
+            .table_name(&self.table_name)
+            .index_name(ROUTINE_INDEX)
+            .key_condition_expression("routine_id = :routine_id")
+            .expression_attribute_values(":routine_id", AttributeValue::S(routine_id.to_string()))
+            .projection_expression("user_id, routine_id")
+            .into_paginator()
+            .items()
+            .send()
+            .collect::<Result<Vec<_>, _>>()
+            .await
+            .map_err(|_| Error::internal_server("Could not delete favorite routines"))?;
+
+        batch_delete_keys(
+            &self.client,
+            &self.table_name,
+            keys,
+            "Could not delete favorite routines",
+        )
+        .await
     }
 }

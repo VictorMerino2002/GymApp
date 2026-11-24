@@ -139,6 +139,7 @@ pub async fn delete_session(
 ) -> impl IntoResponse {
     let use_case = DeleteSessionUseCase {
         session_repository: app_state.session_repository.clone(),
+        fav_session_repository: app_state.fav_session_repository.clone(),
     };
 
     let params = DeleteSessionUseCaseParams { id };

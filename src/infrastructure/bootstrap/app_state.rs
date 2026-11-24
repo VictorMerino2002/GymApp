@@ -4,15 +4,15 @@ use crate::{
     application::ports::{
         JwtEncoderPort,
         repositories::{
-            ExerciseRepository, FavRoutineRepository, RoutineRepository, SessionRepository,
-            UserRepository,
+            ExerciseRepository, FavRoutineRepository, FavSessionRepository, RoutineRepository,
+            SessionRepository, UserRepository,
         },
     },
     infrastructure::adapters::{
         JwtEncoder,
         repositories::{
-            DynamodbExerciseRepository, DynamodbFavRoutineRepository, DynamodbRoutineRepository,
-            DynamodbSessionRepository, DynamodbUserRepository,
+            DynamodbExerciseRepository, DynamodbFavRoutineRepository, DynamodbFavSessionRepository,
+            DynamodbRoutineRepository, DynamodbSessionRepository, DynamodbUserRepository,
         },
     },
 };
@@ -23,6 +23,7 @@ pub struct AppState {
     pub session_repository: Arc<dyn SessionRepository>,
     pub routine_repository: Arc<dyn RoutineRepository>,
     pub fav_routine_repository: Arc<dyn FavRoutineRepository>,
+    pub fav_session_repository: Arc<dyn FavSessionRepository>,
     pub jwt_encoder: Arc<dyn JwtEncoderPort>,
 }
 
@@ -39,6 +40,8 @@ impl AppState {
             std::env::var("ROUTINES_TABLE").expect("ROUTINES_TABLE env var not set");
         let fav_routines_table =
             std::env::var("FAV_ROUTINES_TABLE").expect("FAV_ROUTINES_TABLE env var not set");
+        let fav_sessions_table =
+            std::env::var("FAV_SESSIONS_TABLE").expect("FAV_SESSIONS_TABLE env var not set");
 
         let user_repository = DynamodbUserRepository::new(dynamodb.clone(), users_table);
         let exercise_repository =
@@ -46,7 +49,9 @@ impl AppState {
         let session_repository = DynamodbSessionRepository::new(dynamodb.clone(), sessions_table);
         let routine_repository = DynamodbRoutineRepository::new(dynamodb.clone(), routines_table);
         let fav_routine_repository =
-            DynamodbFavRoutineRepository::new(dynamodb, fav_routines_table);
+            DynamodbFavRoutineRepository::new(dynamodb.clone(), fav_routines_table);
+        let fav_session_repository =
+            DynamodbFavSessionRepository::new(dynamodb, fav_sessions_table);
         let jwt_secret = std::env::var("JWT_SECRET").expect("JWT_SECRET env var not set");
         let jwt_encoder = JwtEncoder::new(jwt_secret);
 
@@ -56,6 +61,7 @@ impl AppState {
             session_repository: Arc::new(session_repository),
             routine_repository: Arc::new(routine_repository),
             fav_routine_repository: Arc::new(fav_routine_repository),
+            fav_session_repository: Arc::new(fav_session_repository),
             jwt_encoder: Arc::new(jwt_encoder),
         }
     }

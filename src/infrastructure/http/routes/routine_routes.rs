@@ -132,6 +132,7 @@ pub async fn delete_routine(
 ) -> impl IntoResponse {
     let use_case = DeleteRoutineUseCase {
         routine_repository: app_state.routine_repository.clone(),
+        fav_routine_repository: app_state.fav_routine_repository.clone(),
     };
 
     let params = DeleteRoutineUseCaseParams { id };

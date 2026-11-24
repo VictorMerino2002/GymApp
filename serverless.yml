@@ -172,6 +172,13 @@ resources:
             KeyType: HASH
           - AttributeName: routine_id
             KeyType: RANGE
+        GlobalSecondaryIndexes:
+          - IndexName: routine-index
+            KeySchema:
+              - AttributeName: routine_id
+                KeyType: HASH
+            Projection:
+              ProjectionType: KEYS_ONLY
 
     FavSessionsTable:
       Type: AWS::DynamoDB::Table
@@ -188,6 +195,13 @@ resources:
             KeyType: HASH
           - AttributeName: session_id
             KeyType: RANGE
+        GlobalSecondaryIndexes:
+          - IndexName: session-index
+            KeySchema:
+              - AttributeName: session_id
+                KeyType: HASH
+            Projection:
+              ProjectionType: KEYS_ONLY
 
     FriendshipsTable:
       Type: AWS::DynamoDB::Table
