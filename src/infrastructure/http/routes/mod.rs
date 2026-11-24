@@ -1,5 +1,6 @@
 pub mod auth_routes;
 pub mod exercise_routes;
+pub mod fav_routine_routes;
 pub mod routine_routes;
 pub mod session_routes;
 
@@ -28,6 +29,15 @@ pub fn router(app_state: Arc<AppState>) -> Router {
             get(exercise_routes::get_exercise)
                 .put(exercise_routes::update_exercise)
                 .delete(exercise_routes::delete_exercise),
+        )
+        .route(
+            "/routines/{id}/favorite",
+            post(fav_routine_routes::add_fav_routine)
+                .delete(fav_routine_routes::remove_fav_routine),
+        )
+        .route(
+            "/me/favorite-routines",
+            get(fav_routine_routes::list_fav_routines),
         )
         .route(
             "/sessions",

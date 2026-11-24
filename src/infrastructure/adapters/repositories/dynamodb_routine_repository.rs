@@ -9,8 +9,9 @@ use crate::{
         entities::Routine,
         value_objects::{Error, Page},
     },
-    infrastructure::adapters::repositories::dynamodb_pagination::{
-        Item, collect_page, id_cursor, id_key,
+    infrastructure::adapters::repositories::{
+        dynamodb_batch::batch_get_by_ids,
+        dynamodb_pagination::{Item, collect_page, id_cursor, id_key},
     },
 };
 
@@ -74,6 +75,19 @@ impl RoutineRepository for DynamodbRoutineRepository {
                     .map_err(|_| Error::internal_server("Could not get routine"))
             })
             .transpose()
+    }
+
+    async fn find_by_ids(&self, ids: &[String]) -> Result<Vec<Routine>, Error> {
+        let items = batch_get_by_ids(
+            &self.client,
+            &self.table_name,
+            ids,
+            "Could not get routines",
+        )
+        .await?;
+
+        serde_dynamo::from_items(items)
+            .map_err(|_| Error::internal_server("Could not get routines"))
     }
 
     async fn find_paginated(

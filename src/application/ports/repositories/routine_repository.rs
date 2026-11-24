@@ -8,6 +8,7 @@ use crate::domain::{
 #[async_trait]
 pub trait RoutineRepository: Send + Sync {
     async fn find_by_id(&self, id: &str) -> Result<Option<Routine>, Error>;
+    async fn find_by_ids(&self, ids: &[String]) -> Result<Vec<Routine>, Error>;
     async fn find_paginated(
         &self,
         limit: u16,
