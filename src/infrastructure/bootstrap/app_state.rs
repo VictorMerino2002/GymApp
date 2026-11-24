@@ -4,16 +4,16 @@ use crate::{
     application::ports::{
         JwtEncoderPort, PasswordHasherPort,
         repositories::{
-            ExerciseHistoryRepository, ExerciseRepository, FavRoutineRepository,
-            FavSessionRepository, FriendshipRepository, RoutineRepository, SessionRepository,
-            UserRepository,
+            ActivityRepository, ExerciseHistoryRepository, ExerciseRepository,
+            FavRoutineRepository, FavSessionRepository, FriendshipRepository, RoutineRepository,
+            SessionRepository, UserRepository,
         },
     },
     infrastructure::adapters::{
         Argon2PasswordHasher, JwtEncoder,
         repositories::{
-            DynamodbExerciseHistoryRepository, DynamodbExerciseRepository,
-            DynamodbFavRoutineRepository, DynamodbFavSessionRepository,
+            DynamodbActivityRepository, DynamodbExerciseHistoryRepository,
+            DynamodbExerciseRepository, DynamodbFavRoutineRepository, DynamodbFavSessionRepository,
             DynamodbFriendshipRepository, DynamodbRoutineRepository, DynamodbSessionRepository,
             DynamodbUserRepository,
         },
@@ -22,6 +22,7 @@ use crate::{
 
 pub struct AppState {
     pub user_repository: Arc<dyn UserRepository>,
+    pub activity_repository: Arc<dyn ActivityRepository>,
     pub exercise_repository: Arc<dyn ExerciseRepository>,
     pub exercise_history_repository: Arc<dyn ExerciseHistoryRepository>,
     pub session_repository: Arc<dyn SessionRepository>,
@@ -38,6 +39,8 @@ impl AppState {
         let aws_config = aws_config::load_from_env().await;
         let dynamodb = aws_sdk_dynamodb::Client::new(&aws_config);
         let users_table = std::env::var("USERS_TABLE").expect("USERS_TABLE env var not set");
+        let activities_table =
+            std::env::var("ACTIVITIES_TABLE").expect("ACTIVITIES_TABLE env var not set");
         let exercises_table =
             std::env::var("EXERCISES_TABLE").expect("EXERCISES_TABLE env var not set");
         let exercise_history_table = std::env::var("EXERCISE_HISTORY_TABLE")
@@ -54,6 +57,8 @@ impl AppState {
             std::env::var("FRIENDSHIPS_TABLE").expect("FRIENDSHIPS_TABLE env var not set");
 
         let user_repository = DynamodbUserRepository::new(dynamodb.clone(), users_table);
+        let activity_repository =
+            DynamodbActivityRepository::new(dynamodb.clone(), activities_table);
         let exercise_repository =
             DynamodbExerciseRepository::new(dynamodb.clone(), exercises_table);
         let exercise_history_repository =
@@ -70,6 +75,7 @@ impl AppState {
 
         Self {
             user_repository: Arc::new(user_repository),
+            activity_repository: Arc::new(activity_repository),
             exercise_repository: Arc::new(exercise_repository),
             exercise_history_repository: Arc::new(exercise_history_repository),
             session_repository: Arc::new(session_repository),

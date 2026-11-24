@@ -50,6 +50,12 @@ pub struct Stats {
     pub progress_version: u32,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ExerciseReward {
+    pub xp: u32,
+    pub personal_record: bool,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub struct PersonalRecord {
     pub weight_kg: f32,
@@ -151,15 +157,20 @@ impl User {
         weight_kg: Option<f32>,
         reps: Option<u16>,
         today: NaiveDate,
-    ) -> u32 {
+    ) -> ExerciseReward {
         let mut xp = XP_PER_SET + self.register_workout_day(today);
+        let personal_record = self.update_personal_record(exercise_id, weight_kg, reps);
 
-        if self.update_personal_record(exercise_id, weight_kg, reps) {
+        if personal_record {
             xp += XP_PERSONAL_RECORD;
         }
 
         self.stats.exercises_done += 1;
-        self.award_xp(xp)
+
+        ExerciseReward {
+            xp: self.award_xp(xp),
+            personal_record,
+        }
     }
 
     pub fn complete_session(&mut self, today: NaiveDate) -> u32 {

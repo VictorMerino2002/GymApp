@@ -7,6 +7,7 @@ pub mod friendship_routes;
 pub mod me_routes;
 pub mod routine_routes;
 pub mod session_routes;
+pub mod social_routes;
 pub mod user_routes;
 
 use std::sync::Arc;
@@ -97,6 +98,9 @@ pub fn router(app_state: Arc<AppState>) -> Router {
         )
         .route("/me/friends", get(friendship_routes::list_friends))
         .route("/users", get(user_routes::list_users))
+        .route("/users/{id}", get(social_routes::get_user_profile))
+        .route("/me/feed", get(social_routes::get_feed))
+        .route("/me/leaderboard", get(social_routes::get_leaderboard))
         .route(
             "/me/exercise-history",
             get(exercise_history_routes::list_exercise_history)

@@ -5,11 +5,18 @@ use chrono::{DateTime, Duration, Utc};
 use crate::{
     application::{
         ports::repositories::{
-            ExerciseHistoryRepository, ExerciseRepository, SessionRepository, UserRepository,
+            ActivityRepository, ExerciseHistoryRepository, ExerciseRepository, SessionRepository,
+            UserRepository,
         },
-        use_cases::user_progress::update_user_progress,
+        use_cases::{
+            activity_publisher::{level_up, publish_activities},
+            user_progress::update_user_progress,
+        },
     },
-    domain::{entities::ExerciseHistory, value_objects::Error},
+    domain::{
+        entities::{ActivityKind, ExerciseHistory},
+        value_objects::Error,
+    },
 };
 
 const MAX_CLOCK_SKEW_MINUTES: i64 = 5;
@@ -19,6 +26,7 @@ pub struct CreateExerciseHistoryUseCase {
     pub exercise_repository: Arc<dyn ExerciseRepository>,
     pub session_repository: Arc<dyn SessionRepository>,
     pub user_repository: Arc<dyn UserRepository>,
+    pub activity_repository: Arc<dyn ActivityRepository>,
 }
 
 pub struct CreateExerciseHistoryUseCaseParams {
@@ -53,7 +61,8 @@ impl CreateExerciseHistoryUseCase {
             return Err(Error::bad_request("reps must be greater than 0"));
         }
 
-        self.exercise_repository
+        let exercise = self
+            .exercise_repository
             .find_by_id(&params.exercise_id)
             .await?
             .ok_or_else(|| {
@@ -70,10 +79,25 @@ impl CreateExerciseHistoryUseCase {
         }
 
         let today = now.date_naive();
-        let xp_awarded = update_user_progress(&*self.user_repository, &params.user_id, |user| {
-            user.record_exercise(&params.exercise_id, params.weight_kg, params.reps, today)
-        })
-        .await?;
+        let (reward, level_before, level_after) =
+            update_user_progress(&*self.user_repository, &params.user_id, |user| {
+                let level_before = user.stats.level();
+                let reward =
+                    user.record_exercise(&params.exercise_id, params.weight_kg, params.reps, today);
+                (reward, level_before, user.stats.level())
+            })
+            .await?;
+
+        let mut activities = Vec::new();
+        if let (true, Some(reps)) = (reward.personal_record, params.reps) {
+            activities.push(ActivityKind::PersonalRecord {
+                exercise_id: exercise.id.clone(),
+                exercise_name: exercise.name.clone(),
+                weight_kg: params.weight_kg.unwrap_or(0.0),
+                reps,
+            });
+        }
+        activities.extend(level_up(level_before, level_after));
 
         let mut history = ExerciseHistory::new(
             params.user_id,
@@ -83,9 +107,10 @@ impl CreateExerciseHistoryUseCase {
             params.weight_kg,
             params.reps,
         );
-        history.xp_awarded = xp_awarded;
+        history.xp_awarded = reward.xp;
 
         self.exercise_history_repository.save(&history).await?;
+        publish_activities(&*self.activity_repository, &history.user_id, activities).await;
 
         Ok(history)
     }

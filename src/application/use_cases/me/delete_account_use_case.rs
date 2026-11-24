@@ -4,8 +4,8 @@ use crate::{
     application::ports::{
         PasswordHasherPort,
         repositories::{
-            ExerciseHistoryRepository, FavRoutineRepository, FavSessionRepository,
-            FriendshipRepository, UserRepository,
+            ActivityRepository, ExerciseHistoryRepository, FavRoutineRepository,
+            FavSessionRepository, FriendshipRepository, UserRepository,
         },
     },
     domain::value_objects::Error,
@@ -17,6 +17,7 @@ pub struct DeleteAccountUseCase {
     pub fav_routine_repository: Arc<dyn FavRoutineRepository>,
     pub fav_session_repository: Arc<dyn FavSessionRepository>,
     pub exercise_history_repository: Arc<dyn ExerciseHistoryRepository>,
+    pub activity_repository: Arc<dyn ActivityRepository>,
     pub password_hasher: Arc<dyn PasswordHasherPort>,
 }
 
@@ -51,6 +52,7 @@ impl DeleteAccountUseCase {
             self.fav_routine_repository.delete_by_user(&user.id),
             self.fav_session_repository.delete_by_user(&user.id),
             self.exercise_history_repository.delete_by_user(&user.id),
+            self.activity_repository.delete_by_user(&user.id),
         )?;
 
         self.user_repository.delete(&user).await

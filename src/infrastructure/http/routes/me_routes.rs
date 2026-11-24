@@ -112,6 +112,7 @@ pub async fn delete_account(
         fav_routine_repository: app_state.fav_routine_repository.clone(),
         fav_session_repository: app_state.fav_session_repository.clone(),
         exercise_history_repository: app_state.exercise_history_repository.clone(),
+        activity_repository: app_state.activity_repository.clone(),
         password_hasher: app_state.password_hasher.clone(),
     };
 

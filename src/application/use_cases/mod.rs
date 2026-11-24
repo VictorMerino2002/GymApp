@@ -1,3 +1,4 @@
+pub mod activity_publisher;
 pub mod auth;
 pub mod exercise_history;
 pub mod exercises;
@@ -7,5 +8,6 @@ pub mod friendships;
 pub mod me;
 pub mod routines;
 pub mod sessions;
+pub mod social;
 pub mod user_progress;
 pub mod users;

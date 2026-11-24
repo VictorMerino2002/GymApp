@@ -13,6 +13,7 @@ provider:
     RUST_LOG: info
     JWT_SECRET: ${ssm:/${self:service}/${sls:stage}/jwt-secret}
     USERS_TABLE: ${self:custom.tables.users}
+    ACTIVITIES_TABLE: ${self:custom.tables.activities}
     EXERCISES_TABLE: ${self:custom.tables.exercises}
     EXERCISE_HISTORY_TABLE: ${self:custom.tables.exerciseHistory}
     ROUTINES_TABLE: ${self:custom.tables.routines}
@@ -41,6 +42,7 @@ provider:
 custom:
   tables:
     users: ${self:service}-${sls:stage}-users
+    activities: ${self:service}-${sls:stage}-activities
     exercises: ${self:service}-${sls:stage}-exercises
     exerciseHistory: ${self:service}-${sls:stage}-exercise-history
     routines: ${self:service}-${sls:stage}-routines
@@ -86,6 +88,25 @@ resources:
                 KeyType: RANGE
             Projection:
               ProjectionType: ALL
+
+    ActivitiesTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:custom.tables.activities}
+        BillingMode: PAY_PER_REQUEST
+        TimeToLiveSpecification:
+          AttributeName: expires_at
+          Enabled: true
+        AttributeDefinitions:
+          - AttributeName: user_id
+            AttributeType: S
+          - AttributeName: id
+            AttributeType: S
+        KeySchema:
+          - AttributeName: user_id
+            KeyType: HASH
+          - AttributeName: id
+            KeyType: RANGE
 
     ExercisesTable:
       Type: AWS::DynamoDB::Table

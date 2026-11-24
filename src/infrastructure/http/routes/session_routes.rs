@@ -156,6 +156,7 @@ pub async fn complete_session(
     let use_case = CompleteSessionUseCase {
         session_repository: app_state.session_repository.clone(),
         user_repository: app_state.user_repository.clone(),
+        activity_repository: app_state.activity_repository.clone(),
     };
 
     let params = CompleteSessionUseCaseParams {

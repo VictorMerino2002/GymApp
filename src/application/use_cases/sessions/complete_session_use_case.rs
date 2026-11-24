@@ -5,10 +5,13 @@ use serde::Serialize;
 
 use crate::{
     application::{
-        ports::repositories::{SessionRepository, UserRepository},
-        use_cases::user_progress::update_user_progress,
+        ports::repositories::{ActivityRepository, SessionRepository, UserRepository},
+        use_cases::{
+            activity_publisher::{level_up, publish_activities},
+            user_progress::update_user_progress,
+        },
     },
-    domain::value_objects::Error,
+    domain::{entities::ActivityKind, value_objects::Error},
 };
 
 #[derive(Debug, Serialize)]
@@ -23,6 +26,7 @@ pub struct SessionCompletion {
 pub struct CompleteSessionUseCase {
     pub session_repository: Arc<dyn SessionRepository>,
     pub user_repository: Arc<dyn UserRepository>,
+    pub activity_repository: Arc<dyn ActivityRepository>,
 }
 
 pub struct CompleteSessionUseCaseParams {
@@ -35,18 +39,27 @@ impl CompleteSessionUseCase {
         &self,
         params: CompleteSessionUseCaseParams,
     ) -> Result<SessionCompletion, Error> {
-        self.session_repository
+        let session = self
+            .session_repository
             .find_by_id(&params.session_id)
             .await?
             .ok_or_else(|| Error::not_found("Session not found"))?;
 
         let today = Utc::now().date_naive();
-        let (xp_awarded, stats) =
+        let (xp_awarded, level_before, stats) =
             update_user_progress(&*self.user_repository, &params.user_id, |user| {
+                let level_before = user.stats.level();
                 let xp_awarded = user.complete_session(today);
-                (xp_awarded, user.stats)
+                (xp_awarded, level_before, user.stats)
             })
             .await?;
+
+        let mut activities = vec![ActivityKind::SessionCompleted {
+            session_id: session.id,
+            session_name: session.name,
+        }];
+        activities.extend(level_up(level_before, stats.level()));
+        publish_activities(&*self.activity_repository, &params.user_id, activities).await;
 
         Ok(SessionCompletion {
             session_id: params.session_id,
