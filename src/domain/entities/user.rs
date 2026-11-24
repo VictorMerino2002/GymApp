@@ -1,12 +1,16 @@
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
+use crate::domain::value_objects::Role;
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct User {
     pub id: String,
     pub username: String,
     pub picture_url: Option<String>,
     pub stats: Stats,
+    #[serde(default)]
+    pub role: Role,
 }
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -33,6 +37,7 @@ impl User {
             username: username.into(),
             picture_url: None,
             stats: Stats::default(),
+            role: Role::User,
         }
     }
 }

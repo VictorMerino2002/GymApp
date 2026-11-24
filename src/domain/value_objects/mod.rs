@@ -4,6 +4,7 @@ mod error;
 mod jwt;
 mod muscle;
 mod page;
+mod role;
 
 pub use author::Author;
 pub use difficulty_level::DifficultyLevel;
@@ -11,3 +12,4 @@ pub use error::Error;
 pub use jwt::{Jwt, TokenType};
 pub use muscle::Muscle;
 pub use page::Page;
+pub use role::Role;

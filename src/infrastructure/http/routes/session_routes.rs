@@ -17,7 +17,7 @@ use crate::{
     infrastructure::{
         bootstrap::AppState,
         http::{
-            extractors::{ApiJson, ApiQuery, AuthUser},
+            extractors::{AdminUser, ApiJson, ApiQuery},
             value_objects::ApiResponse,
         },
     },
@@ -57,7 +57,7 @@ pub struct ListSessionsQuery {
 
 pub async fn create_session(
     State(app_state): State<Arc<AppState>>,
-    auth_user: AuthUser,
+    admin: AdminUser,
     ApiJson(payload): ApiJson<SessionRequest>,
 ) -> impl IntoResponse {
     let use_case = CreateSessionUseCase {
@@ -67,7 +67,7 @@ pub async fn create_session(
     };
 
     let params = CreateSessionUseCaseParams {
-        user_id: auth_user.user_id,
+        user_id: admin.user_id,
         name: payload.name,
         exercises: payload.exercises.into_iter().map(Into::into).collect(),
     };
@@ -78,7 +78,6 @@ pub async fn create_session(
 
 pub async fn list_sessions(
     State(app_state): State<Arc<AppState>>,
-    auth_user: AuthUser,
     ApiQuery(query): ApiQuery<ListSessionsQuery>,
 ) -> impl IntoResponse {
     let use_case = ListSessionsUseCase {
@@ -86,7 +85,7 @@ pub async fn list_sessions(
     };
 
     let params = ListSessionsUseCaseParams {
-        author_id: query.author_id.unwrap_or(auth_user.user_id),
+        author_id: query.author_id,
         limit: query.limit,
         cursor: query.cursor,
     };
@@ -111,7 +110,7 @@ pub async fn get_session(
 
 pub async fn update_session(
     State(app_state): State<Arc<AppState>>,
-    auth_user: AuthUser,
+    _admin: AdminUser,
     Path(id): Path<String>,
     ApiJson(payload): ApiJson<SessionRequest>,
 ) -> impl IntoResponse {
@@ -121,7 +120,6 @@ pub async fn update_session(
     };
 
     let params = UpdateSessionUseCaseParams {
-        user_id: auth_user.user_id,
         id,
         name: payload.name,
         exercises: payload.exercises.into_iter().map(Into::into).collect(),
@@ -133,17 +131,14 @@ pub async fn update_session(
 
 pub async fn delete_session(
     State(app_state): State<Arc<AppState>>,
-    auth_user: AuthUser,
+    _admin: AdminUser,
     Path(id): Path<String>,
 ) -> impl IntoResponse {
     let use_case = DeleteSessionUseCase {
         session_repository: app_state.session_repository.clone(),
     };
 
-    let params = DeleteSessionUseCaseParams {
-        user_id: auth_user.user_id,
-        id,
-    };
+    let params = DeleteSessionUseCaseParams { id };
 
     let result = use_case.execute(params).await;
     ApiResponse::default(result)

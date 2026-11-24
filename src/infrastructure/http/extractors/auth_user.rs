@@ -7,12 +7,13 @@ use axum::{
 };
 
 use crate::{
-    domain::value_objects::{Error, TokenType},
+    domain::value_objects::{Error, Role, TokenType},
     infrastructure::{bootstrap::AppState, http::value_objects::ApiResponse},
 };
 
 pub struct AuthUser {
     pub user_id: String,
+    pub role: Role,
 }
 
 impl FromRequestParts<Arc<AppState>> for AuthUser {
@@ -38,7 +39,10 @@ impl FromRequestParts<Arc<AppState>> for AuthUser {
             return Err(unauthorized("Invalid token"));
         }
 
-        Ok(Self { user_id: jwt.sub })
+        Ok(Self {
+            user_id: jwt.sub,
+            role: jwt.role,
+        })
     }
 }
 

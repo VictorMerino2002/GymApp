@@ -16,7 +16,7 @@ pub struct ListSessionsUseCase {
 }
 
 pub struct ListSessionsUseCaseParams {
-    pub author_id: String,
+    pub author_id: Option<String>,
     pub limit: Option<u16>,
     pub cursor: Option<String>,
 }
@@ -31,8 +31,15 @@ impl ListSessionsUseCase {
             )));
         }
 
-        self.session_repository
-            .find_by_author(&params.author_id, limit, params.cursor.as_deref())
-            .await
+        let cursor = params.cursor.as_deref();
+
+        match params.author_id {
+            Some(author_id) => {
+                self.session_repository
+                    .find_by_author(&author_id, limit, cursor)
+                    .await
+            }
+            None => self.session_repository.find_paginated(limit, cursor).await,
+        }
     }
 }

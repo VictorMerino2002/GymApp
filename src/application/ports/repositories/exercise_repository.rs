@@ -16,4 +16,5 @@ pub trait ExerciseRepository: Send + Sync {
         cursor: Option<&str>,
     ) -> Result<Page<Exercise>, Error>;
     async fn save(&self, exercise: &Exercise) -> Result<(), Error>;
+    async fn delete(&self, id: &str) -> Result<(), Error>;
 }

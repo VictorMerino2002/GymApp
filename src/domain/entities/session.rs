@@ -29,8 +29,4 @@ impl Session {
             exercises,
         }
     }
-
-    pub fn is_authored_by(&self, user_id: &str) -> bool {
-        self.author.user_id == user_id
-    }
 }

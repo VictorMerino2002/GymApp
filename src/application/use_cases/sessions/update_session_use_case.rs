@@ -16,7 +16,6 @@ pub struct UpdateSessionUseCase {
 }
 
 pub struct UpdateSessionUseCaseParams {
-    pub user_id: String,
     pub id: String,
     pub name: String,
     pub exercises: Vec<SessionExerciseInput>,
@@ -31,10 +30,6 @@ impl UpdateSessionUseCase {
             .find_by_id(&params.id)
             .await?
             .ok_or_else(|| Error::not_found("Session not found"))?;
-
-        if !session.is_authored_by(&params.user_id) {
-            return Err(Error::forbidden("You can only edit your own sessions"));
-        }
 
         let catalog = self
             .exercise_repository

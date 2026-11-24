@@ -48,6 +48,34 @@ impl SessionRepository for DynamodbSessionRepository {
             .transpose()
     }
 
+    async fn find_paginated(
+        &self,
+        limit: u16,
+        cursor: Option<&str>,
+    ) -> Result<Page<Session>, Error> {
+        let start_key =
+            cursor.map(|id| HashMap::from([("id".to_string(), AttributeValue::S(id.to_string()))]));
+
+        let output = self
+            .client
+            .scan()
+            .table_name(&self.table_name)
+            .limit(i32::from(limit))
+            .set_exclusive_start_key(start_key)
+            .send()
+            .await
+            .map_err(|_| Error::internal_server("Could not get sessions"))?;
+
+        let items = serde_dynamo::from_items(output.items.unwrap_or_default())
+            .map_err(|_| Error::internal_server("Could not get sessions"))?;
+
+        let next_cursor = output
+            .last_evaluated_key
+            .and_then(|key| key.get("id").and_then(|id| id.as_s().ok()).cloned());
+
+        Ok(Page { items, next_cursor })
+    }
+
     async fn find_by_author(
         &self,
         author_id: &str,

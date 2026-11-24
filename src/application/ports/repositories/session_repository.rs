@@ -8,6 +8,11 @@ use crate::domain::{
 #[async_trait]
 pub trait SessionRepository: Send + Sync {
     async fn find_by_id(&self, id: &str) -> Result<Option<Session>, Error>;
+    async fn find_paginated(
+        &self,
+        limit: u16,
+        cursor: Option<&str>,
+    ) -> Result<Page<Session>, Error>;
     async fn find_by_author(
         &self,
         author_id: &str,

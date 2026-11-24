@@ -18,8 +18,16 @@ pub fn router(app_state: Arc<AppState>) -> Router {
         .route("/auth/register", post(auth_routes::register));
 
     let protected_routes = Router::new()
-        .route("/exercises", get(exercise_routes::list_exercises))
-        .route("/exercises/{id}", get(exercise_routes::get_exercise))
+        .route(
+            "/exercises",
+            get(exercise_routes::list_exercises).post(exercise_routes::create_exercise),
+        )
+        .route(
+            "/exercises/{id}",
+            get(exercise_routes::get_exercise)
+                .put(exercise_routes::update_exercise)
+                .delete(exercise_routes::delete_exercise),
+        )
         .route(
             "/sessions",
             get(session_routes::list_sessions).post(session_routes::create_session),

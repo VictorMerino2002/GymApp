@@ -166,4 +166,16 @@ impl ExerciseRepository for DynamodbExerciseRepository {
 
         Ok(())
     }
+
+    async fn delete(&self, id: &str) -> Result<(), Error> {
+        self.client
+            .delete_item()
+            .table_name(&self.table_name)
+            .key("id", AttributeValue::S(id.to_string()))
+            .send()
+            .await
+            .map_err(|_| Error::internal_server("Could not delete exercise"))?;
+
+        Ok(())
+    }
 }

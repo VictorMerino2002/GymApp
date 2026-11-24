@@ -34,6 +34,9 @@ impl LoginUseCase {
             jwt_encoder: Arc::clone(&self.jwt_encoder),
         };
 
-        generate_auth_use_case.execute(&GenerateAuthUseCaseParams { user_id: user.id })
+        generate_auth_use_case.execute(&GenerateAuthUseCaseParams {
+            user_id: user.id,
+            role: user.role,
+        })
     }
 }

@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use uuid::Uuid;
 
 use crate::domain::value_objects::Muscle;
 
@@ -11,4 +12,25 @@ pub struct Exercise {
     pub instructions: Vec<String>,
     pub video_url: Option<String>,
     pub img_url: Option<String>,
+}
+
+impl Exercise {
+    pub fn new(
+        name: impl Into<String>,
+        muscles: Vec<Muscle>,
+        description: impl Into<String>,
+        instructions: Vec<String>,
+        video_url: Option<String>,
+        img_url: Option<String>,
+    ) -> Self {
+        Self {
+            id: Uuid::new_v4().into(),
+            name: name.into(),
+            muscles,
+            description: description.into(),
+            instructions,
+            video_url,
+            img_url,
+        }
+    }
 }
