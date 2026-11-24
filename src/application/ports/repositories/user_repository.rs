@@ -10,6 +10,8 @@ pub trait UserRepository: Send + Sync {
     async fn update(&self, user: &User) -> Result<(), Error>;
     async fn find_by_id(&self, id: &str) -> Result<Option<User>, Error>;
     async fn increment_token_version(&self, user_id: &str) -> Result<(), Error>;
+    async fn update_profile(&self, user: &User, previous_username: &str) -> Result<(), Error>;
+    async fn update_password(&self, user_id: &str, password_hash: &str) -> Result<u32, Error>;
     async fn update_progress(
         &self,
         user: &User,

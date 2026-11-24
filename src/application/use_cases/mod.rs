@@ -4,6 +4,7 @@ pub mod exercises;
 pub mod fav_routines;
 pub mod fav_sessions;
 pub mod friendships;
+pub mod me;
 pub mod routines;
 pub mod sessions;
 pub mod users;

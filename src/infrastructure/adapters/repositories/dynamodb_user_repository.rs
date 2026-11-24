@@ -4,7 +4,7 @@ use async_trait::async_trait;
 use aws_sdk_dynamodb::{
     Client,
     operation::transact_write_items::TransactWriteItemsError,
-    types::{AttributeValue, Put, TransactWriteItem},
+    types::{AttributeValue, Delete, Put, ReturnValue, TransactWriteItem, Update},
 };
 
 use crate::{
@@ -54,17 +54,57 @@ fn user_item(user: &User) -> Result<Item, Error> {
     Ok(item)
 }
 
+fn username_marker_key(username: &str) -> Item {
+    HashMap::from([(
+        "id".to_string(),
+        AttributeValue::S(format!(
+            "{USERNAME_MARKER_PREFIX}{}",
+            username.to_lowercase()
+        )),
+    )])
+}
+
 fn username_marker_item(user: &User) -> Item {
-    HashMap::from([
-        (
-            "id".to_string(),
-            AttributeValue::S(format!(
-                "{USERNAME_MARKER_PREFIX}{}",
-                user.username.to_lowercase()
-            )),
-        ),
-        ("user_id".to_string(), AttributeValue::S(user.id.clone())),
-    ])
+    let mut item = username_marker_key(&user.username);
+    item.insert("user_id".to_string(), AttributeValue::S(user.id.clone()));
+    item
+}
+
+fn profile_update(table_name: &str, user: &User) -> Result<Update, Error> {
+    let picture_url = match &user.picture_url {
+        Some(url) => AttributeValue::S(url.clone()),
+        None => AttributeValue::Null(true),
+    };
+
+    Update::builder()
+        .table_name(table_name)
+        .key("id", AttributeValue::S(user.id.clone()))
+        .update_expression(
+            "SET #username = :username, #username_lower = :username_lower, #picture = :picture",
+        )
+        .condition_expression("attribute_exists(id)")
+        .expression_attribute_names("#username", "username")
+        .expression_attribute_names("#username_lower", "username_lower")
+        .expression_attribute_names("#picture", "picture_url")
+        .expression_attribute_values(":username", AttributeValue::S(user.username.clone()))
+        .expression_attribute_values(
+            ":username_lower",
+            AttributeValue::S(user.username.to_lowercase()),
+        )
+        .expression_attribute_values(":picture", picture_url)
+        .build()
+        .map_err(|_| Error::internal_server("Could not update user"))
+}
+
+fn is_condition_failure(error: &TransactWriteItemsError) -> bool {
+    matches!(
+        error,
+        TransactWriteItemsError::TransactionCanceledException(canceled)
+            if canceled
+                .cancellation_reasons()
+                .iter()
+                .any(|reason| reason.code() == Some("ConditionalCheckFailed"))
+    )
 }
 
 fn new_item_put(table_name: &str, item: Item) -> Result<TransactWriteItem, Error> {
@@ -116,14 +156,7 @@ impl UserRepository for DynamodbUserRepository {
         match result {
             Ok(_) => Ok(()),
             Err(error) => {
-                let username_taken = matches!(
-                    error.as_service_error(),
-                    Some(TransactWriteItemsError::TransactionCanceledException(canceled))
-                        if canceled
-                            .cancellation_reasons()
-                            .iter()
-                            .any(|reason| reason.code() == Some("ConditionalCheckFailed"))
-                );
+                let username_taken = error.as_service_error().is_some_and(is_condition_failure);
 
                 if username_taken {
                     Err(Error::conflict("Username already taken"))
@@ -235,6 +268,81 @@ impl UserRepository for DynamodbUserRepository {
             }
             Err(_) => Err(Error::internal_server("Could not log out")),
         }
+    }
+
+    async fn update_profile(&self, user: &User, previous_username: &str) -> Result<(), Error> {
+        let username_changed = user.username.to_lowercase() != previous_username.to_lowercase();
+        let mut request = self.client.transact_write_items();
+
+        if username_changed {
+            let delete_old_marker = Delete::builder()
+                .table_name(&self.table_name)
+                .set_key(Some(username_marker_key(previous_username)))
+                .build()
+                .map_err(|_| Error::internal_server("Could not update user"))?;
+
+            request = request
+                .transact_items(
+                    TransactWriteItem::builder()
+                        .delete(delete_old_marker)
+                        .build(),
+                )
+                .transact_items(new_item_put(&self.table_name, username_marker_item(user))?);
+        }
+
+        let update = profile_update(&self.table_name, user)?;
+        let result = request
+            .transact_items(TransactWriteItem::builder().update(update).build())
+            .send()
+            .await;
+
+        match result {
+            Ok(_) => Ok(()),
+            Err(error) if error.as_service_error().is_some_and(is_condition_failure) => {
+                if username_changed {
+                    Err(Error::conflict("Username already taken"))
+                } else {
+                    Err(Error::not_found("User not found"))
+                }
+            }
+            Err(_) => Err(Error::internal_server("Could not update user")),
+        }
+    }
+
+    async fn update_password(&self, user_id: &str, password_hash: &str) -> Result<u32, Error> {
+        let result = self
+            .client
+            .update_item()
+            .table_name(&self.table_name)
+            .key("id", AttributeValue::S(user_id.to_string()))
+            .update_expression("SET #password = :password ADD #version :one")
+            .condition_expression("attribute_exists(id)")
+            .expression_attribute_names("#password", "password_hash")
+            .expression_attribute_names("#version", "token_version")
+            .expression_attribute_values(":password", AttributeValue::S(password_hash.to_string()))
+            .expression_attribute_values(":one", AttributeValue::N("1".to_string()))
+            .return_values(ReturnValue::UpdatedNew)
+            .send()
+            .await;
+
+        let output = match result {
+            Ok(output) => output,
+            Err(error)
+                if error
+                    .as_service_error()
+                    .is_some_and(|error| error.is_conditional_check_failed_exception()) =>
+            {
+                return Err(Error::unauthorized("User not found"));
+            }
+            Err(_) => return Err(Error::internal_server("Could not update password")),
+        };
+
+        output
+            .attributes()
+            .and_then(|attributes| attributes.get("token_version"))
+            .and_then(|version| version.as_n().ok())
+            .and_then(|version| version.parse().ok())
+            .ok_or_else(|| Error::internal_server("Could not update password"))
     }
 
     async fn find_by_ids(&self, ids: &[String]) -> Result<Vec<User>, Error> {

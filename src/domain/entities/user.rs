@@ -8,6 +8,9 @@ use crate::domain::value_objects::{Error, Role};
 
 const MIN_USERNAME_LENGTH: usize = 3;
 const MAX_USERNAME_LENGTH: usize = 20;
+const MIN_PASSWORD_LENGTH: usize = 8;
+const MAX_PASSWORD_LENGTH: usize = 128;
+const MAX_PICTURE_URL_LENGTH: usize = 2048;
 const XP_PER_SET: u32 = 10;
 const XP_PERSONAL_RECORD: u32 = 25;
 const XP_PER_STREAK_WEEK: u32 = 5;
@@ -85,6 +88,29 @@ pub fn validate_username(username: &str) -> Result<(), Error> {
         return Err(Error::bad_request(
             "username must start with a letter or a number",
         ));
+    }
+
+    Ok(())
+}
+
+pub fn validate_password(password: &str) -> Result<(), Error> {
+    let length = password.chars().count();
+
+    if !(MIN_PASSWORD_LENGTH..=MAX_PASSWORD_LENGTH).contains(&length) {
+        return Err(Error::bad_request(&format!(
+            "password must be between {MIN_PASSWORD_LENGTH} and {MAX_PASSWORD_LENGTH} characters"
+        )));
+    }
+
+    Ok(())
+}
+
+pub fn validate_picture_url(url: &str) -> Result<(), Error> {
+    if url.len() > MAX_PICTURE_URL_LENGTH
+        || !url.starts_with("https://")
+        || url.chars().any(char::is_whitespace)
+    {
+        return Err(Error::bad_request("picture_url must be a valid https URL"));
     }
 
     Ok(())

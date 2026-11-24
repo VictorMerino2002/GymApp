@@ -14,4 +14,7 @@ pub use fav_session::FavSession;
 pub use friendship::{Friendship, FriendshipError, FriendshipStatus};
 pub use routine::{Routine, SessionRef};
 pub use session::{Session, SessionExercise};
-pub use user::{PersonalRecord, Stats, User, level_from_xp, validate_username, xp_for_level};
+pub use user::{
+    PersonalRecord, Stats, User, level_from_xp, validate_password, validate_picture_url,
+    validate_username, xp_for_level,
+};

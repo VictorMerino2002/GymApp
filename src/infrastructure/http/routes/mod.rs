@@ -4,6 +4,7 @@ pub mod exercise_routes;
 pub mod fav_routine_routes;
 pub mod fav_session_routes;
 pub mod friendship_routes;
+pub mod me_routes;
 pub mod routine_routes;
 pub mod session_routes;
 pub mod user_routes;
@@ -26,6 +27,11 @@ pub fn router(app_state: Arc<AppState>) -> Router {
 
     let protected_routes = Router::new()
         .route("/auth/logout", post(auth_routes::logout))
+        .route(
+            "/me",
+            get(me_routes::get_profile).patch(me_routes::update_profile),
+        )
+        .route("/me/password", post(me_routes::change_password))
         .route(
             "/exercises",
             get(exercise_routes::list_exercises).post(exercise_routes::create_exercise),
