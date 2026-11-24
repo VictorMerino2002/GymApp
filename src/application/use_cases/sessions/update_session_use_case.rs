@@ -4,7 +4,8 @@ use crate::{
     application::{
         ports::repositories::{ExerciseRepository, SessionRepository},
         use_cases::sessions::session_exercises::{
-            SessionExerciseInput, build_session_exercises, exercise_ids, validate_session,
+            SessionExerciseInput, build_session_exercises, collect_muscles, exercise_ids,
+            validate_session,
         },
     },
     domain::{entities::Session, value_objects::Error},
@@ -38,6 +39,7 @@ impl UpdateSessionUseCase {
 
         session.name = params.name.trim().to_string();
         session.exercises = build_session_exercises(params.exercises, &catalog)?;
+        session.muscles = collect_muscles(&catalog);
 
         self.session_repository.save(&session).await?;
         Ok(session)

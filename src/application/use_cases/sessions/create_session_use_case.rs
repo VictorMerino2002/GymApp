@@ -4,7 +4,8 @@ use crate::{
     application::{
         ports::repositories::{ExerciseRepository, SessionRepository, UserRepository},
         use_cases::sessions::session_exercises::{
-            SessionExerciseInput, build_session_exercises, exercise_ids, validate_session,
+            SessionExerciseInput, build_session_exercises, collect_muscles, exercise_ids,
+            validate_session,
         },
     },
     domain::{
@@ -45,7 +46,12 @@ impl CreateSessionUseCase {
             user_id: user.id,
             user_name: user.username,
         };
-        let session = Session::new(params.name.trim(), author, exercises);
+        let session = Session::new(
+            params.name.trim(),
+            author,
+            exercises,
+            collect_muscles(&catalog),
+        );
 
         self.session_repository.save(&session).await?;
         Ok(session)

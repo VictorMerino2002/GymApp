@@ -1,4 +1,5 @@
 mod dynamodb_exercise_repository;
+mod dynamodb_pagination;
 mod dynamodb_session_repository;
 mod dynamodb_user_repository;
 

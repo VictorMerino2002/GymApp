@@ -4,7 +4,7 @@ use crate::{
     application::ports::repositories::SessionRepository,
     domain::{
         entities::Session,
-        value_objects::{Error, Page},
+        value_objects::{Error, Muscle, Page},
     },
 };
 
@@ -19,6 +19,7 @@ pub struct ListSessionsUseCaseParams {
     pub author_id: Option<String>,
     pub limit: Option<u16>,
     pub cursor: Option<String>,
+    pub muscle: Option<Muscle>,
 }
 
 impl ListSessionsUseCase {
@@ -36,10 +37,14 @@ impl ListSessionsUseCase {
         match params.author_id {
             Some(author_id) => {
                 self.session_repository
-                    .find_by_author(&author_id, limit, cursor)
+                    .find_by_author(&author_id, limit, cursor, params.muscle)
                     .await
             }
-            None => self.session_repository.find_paginated(limit, cursor).await,
+            None => {
+                self.session_repository
+                    .find_paginated(limit, cursor, params.muscle)
+                    .await
+            }
         }
     }
 }

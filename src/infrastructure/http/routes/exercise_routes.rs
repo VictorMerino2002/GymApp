@@ -53,6 +53,7 @@ impl From<ExerciseRequest> for ExerciseInput {
 pub struct ListExercisesQuery {
     limit: Option<u16>,
     cursor: Option<String>,
+    muscle: Option<Muscle>,
 }
 
 pub async fn list_exercises(
@@ -66,6 +67,7 @@ pub async fn list_exercises(
     let params = ListExercisesUseCaseParams {
         limit: query.limit,
         cursor: query.cursor,
+        muscle: query.muscle,
     };
 
     let result = use_case.execute(params).await;

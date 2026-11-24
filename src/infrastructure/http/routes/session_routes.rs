@@ -14,6 +14,7 @@ use crate::{
         ListSessionsUseCase, ListSessionsUseCaseParams, SessionExerciseInput, UpdateSessionUseCase,
         UpdateSessionUseCaseParams,
     },
+    domain::value_objects::Muscle,
     infrastructure::{
         bootstrap::AppState,
         http::{
@@ -53,6 +54,7 @@ pub struct ListSessionsQuery {
     author_id: Option<String>,
     limit: Option<u16>,
     cursor: Option<String>,
+    muscle: Option<Muscle>,
 }
 
 pub async fn create_session(
@@ -88,6 +90,7 @@ pub async fn list_sessions(
         author_id: query.author_id,
         limit: query.limit,
         cursor: query.cursor,
+        muscle: query.muscle,
     };
 
     let result = use_case.execute(params).await;

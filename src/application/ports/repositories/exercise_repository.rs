@@ -2,7 +2,7 @@ use async_trait::async_trait;
 
 use crate::domain::{
     entities::Exercise,
-    value_objects::{Error, Page},
+    value_objects::{Error, Muscle, Page},
 };
 
 #[async_trait]
@@ -14,6 +14,7 @@ pub trait ExerciseRepository: Send + Sync {
         &self,
         limit: u16,
         cursor: Option<&str>,
+        muscle: Option<Muscle>,
     ) -> Result<Page<Exercise>, Error>;
     async fn save(&self, exercise: &Exercise) -> Result<(), Error>;
     async fn delete(&self, id: &str) -> Result<(), Error>;

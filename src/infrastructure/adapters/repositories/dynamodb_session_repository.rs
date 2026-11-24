@@ -7,7 +7,10 @@ use crate::{
     application::ports::repositories::SessionRepository,
     domain::{
         entities::Session,
-        value_objects::{Error, Page},
+        value_objects::{Error, Muscle, Page},
+    },
+    infrastructure::adapters::repositories::dynamodb_pagination::{
+        collect_page, id_key, muscle_value,
     },
 };
 
@@ -52,28 +55,42 @@ impl SessionRepository for DynamodbSessionRepository {
         &self,
         limit: u16,
         cursor: Option<&str>,
+        muscle: Option<Muscle>,
     ) -> Result<Page<Session>, Error> {
-        let start_key =
-            cursor.map(|id| HashMap::from([("id".to_string(), AttributeValue::S(id.to_string()))]));
+        let muscle = muscle.map(muscle_value).transpose()?;
 
-        let output = self
-            .client
-            .scan()
-            .table_name(&self.table_name)
-            .limit(i32::from(limit))
-            .set_exclusive_start_key(start_key)
-            .send()
-            .await
+        let page = collect_page(limit, cursor.map(id_key), |start_key| {
+            let mut request = self
+                .client
+                .scan()
+                .table_name(&self.table_name)
+                .limit(i32::from(limit))
+                .set_exclusive_start_key(start_key);
+
+            if let Some(muscle) = &muscle {
+                request = request
+                    .filter_expression("contains(#muscles, :muscle)")
+                    .expression_attribute_names("#muscles", "muscles")
+                    .expression_attribute_values(":muscle", muscle.clone());
+            }
+
+            async move {
+                let output = request
+                    .send()
+                    .await
+                    .map_err(|_| Error::internal_server("Could not get sessions"))?;
+                Ok((output.items.unwrap_or_default(), output.last_evaluated_key))
+            }
+        })
+        .await?;
+
+        let items = serde_dynamo::from_items(page.items)
             .map_err(|_| Error::internal_server("Could not get sessions"))?;
 
-        let items = serde_dynamo::from_items(output.items.unwrap_or_default())
-            .map_err(|_| Error::internal_server("Could not get sessions"))?;
-
-        let next_cursor = output
-            .last_evaluated_key
-            .and_then(|key| key.get("id").and_then(|id| id.as_s().ok()).cloned());
-
-        Ok(Page { items, next_cursor })
+        Ok(Page {
+            items,
+            next_cursor: page.next_cursor,
+        })
     }
 
     async fn find_by_author(
@@ -81,38 +98,53 @@ impl SessionRepository for DynamodbSessionRepository {
         author_id: &str,
         limit: u16,
         cursor: Option<&str>,
+        muscle: Option<Muscle>,
     ) -> Result<Page<Session>, Error> {
+        let muscle = muscle.map(muscle_value).transpose()?;
         let start_key = cursor.map(|id| {
-            HashMap::from([
-                ("id".to_string(), AttributeValue::S(id.to_string())),
-                (
-                    "author_id".to_string(),
-                    AttributeValue::S(author_id.to_string()),
-                ),
-            ])
+            let mut key = id_key(id);
+            key.insert(
+                "author_id".to_string(),
+                AttributeValue::S(author_id.to_string()),
+            );
+            key
         });
 
-        let output = self
-            .client
-            .query()
-            .table_name(&self.table_name)
-            .index_name(AUTHOR_INDEX)
-            .key_condition_expression("author_id = :author_id")
-            .expression_attribute_values(":author_id", AttributeValue::S(author_id.to_string()))
-            .limit(i32::from(limit))
-            .set_exclusive_start_key(start_key)
-            .send()
-            .await
+        let page = collect_page(limit, start_key, |start_key| {
+            let mut request = self
+                .client
+                .query()
+                .table_name(&self.table_name)
+                .index_name(AUTHOR_INDEX)
+                .key_condition_expression("author_id = :author_id")
+                .expression_attribute_values(":author_id", AttributeValue::S(author_id.to_string()))
+                .limit(i32::from(limit))
+                .set_exclusive_start_key(start_key);
+
+            if let Some(muscle) = &muscle {
+                request = request
+                    .filter_expression("contains(#muscles, :muscle)")
+                    .expression_attribute_names("#muscles", "muscles")
+                    .expression_attribute_values(":muscle", muscle.clone());
+            }
+
+            async move {
+                let output = request
+                    .send()
+                    .await
+                    .map_err(|_| Error::internal_server("Could not get sessions"))?;
+                Ok((output.items.unwrap_or_default(), output.last_evaluated_key))
+            }
+        })
+        .await?;
+
+        let items = serde_dynamo::from_items(page.items)
             .map_err(|_| Error::internal_server("Could not get sessions"))?;
 
-        let items = serde_dynamo::from_items(output.items.unwrap_or_default())
-            .map_err(|_| Error::internal_server("Could not get sessions"))?;
-
-        let next_cursor = output
-            .last_evaluated_key
-            .and_then(|key| key.get("id").and_then(|id| id.as_s().ok()).cloned());
-
-        Ok(Page { items, next_cursor })
+        Ok(Page {
+            items,
+            next_cursor: page.next_cursor,
+        })
     }
 
     async fn save(&self, session: &Session) -> Result<(), Error> {

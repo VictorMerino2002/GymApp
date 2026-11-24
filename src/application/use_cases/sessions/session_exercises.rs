@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use crate::domain::{
     entities::{Exercise, SessionExercise},
-    value_objects::Error,
+    value_objects::{Error, Muscle},
 };
 
 pub struct SessionExerciseInput {
@@ -60,4 +60,16 @@ pub fn build_session_exercises(
             })
         })
         .collect()
+}
+
+pub fn collect_muscles(catalog: &[Exercise]) -> Vec<Muscle> {
+    let mut muscles = Vec::new();
+
+    for muscle in catalog.iter().flat_map(|exercise| &exercise.muscles) {
+        if !muscles.contains(muscle) {
+            muscles.push(*muscle);
+        }
+    }
+
+    muscles
 }
