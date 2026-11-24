@@ -1,7 +1,13 @@
-use std::collections::HashMap;
+use std::{
+    collections::{BTreeSet, HashMap},
+    time::Duration,
+};
 
 use async_trait::async_trait;
-use aws_sdk_dynamodb::{Client, types::AttributeValue};
+use aws_sdk_dynamodb::{
+    Client,
+    types::{AttributeValue, KeysAndAttributes},
+};
 
 use crate::{
     application::ports::repositories::ExerciseRepository,
@@ -10,6 +16,9 @@ use crate::{
         value_objects::{Error, Page},
     },
 };
+
+const BATCH_GET_MAX_KEYS: usize = 100;
+const BATCH_GET_MAX_ATTEMPTS: u32 = 5;
 
 pub struct DynamodbExerciseRepository {
     client: Client,
@@ -44,6 +53,59 @@ impl ExerciseRepository for DynamodbExerciseRepository {
                     .map_err(|_| Error::internal_server("Could not get exercise"))
             })
             .transpose()
+    }
+
+    async fn find_by_ids(&self, ids: &[String]) -> Result<Vec<Exercise>, Error> {
+        let unique_ids: Vec<&String> = ids.iter().collect::<BTreeSet<_>>().into_iter().collect();
+        let mut exercises = Vec::with_capacity(unique_ids.len());
+
+        for chunk in unique_ids.chunks(BATCH_GET_MAX_KEYS) {
+            let keys = chunk
+                .iter()
+                .map(|id| HashMap::from([("id".to_string(), AttributeValue::S(id.to_string()))]))
+                .collect();
+
+            let keys_and_attributes = KeysAndAttributes::builder()
+                .set_keys(Some(keys))
+                .build()
+                .map_err(|_| Error::internal_server("Could not get exercises"))?;
+
+            let mut request_items = HashMap::from([(self.table_name.clone(), keys_and_attributes)]);
+            let mut attempt = 0;
+
+            loop {
+                let output = self
+                    .client
+                    .batch_get_item()
+                    .set_request_items(Some(request_items))
+                    .send()
+                    .await
+                    .map_err(|_| Error::internal_server("Could not get exercises"))?;
+
+                let found = output
+                    .responses
+                    .and_then(|mut responses| responses.remove(&self.table_name))
+                    .unwrap_or_default();
+
+                let parsed: Vec<Exercise> = serde_dynamo::from_items(found)
+                    .map_err(|_| Error::internal_server("Could not get exercises"))?;
+                exercises.extend(parsed);
+
+                match output.unprocessed_keys.filter(|keys| !keys.is_empty()) {
+                    None => break,
+                    Some(unprocessed) => {
+                        attempt += 1;
+                        if attempt >= BATCH_GET_MAX_ATTEMPTS {
+                            return Err(Error::internal_server("Could not get exercises"));
+                        }
+                        tokio::time::sleep(Duration::from_millis(50 * 2u64.pow(attempt))).await;
+                        request_items = unprocessed;
+                    }
+                }
+            }
+        }
+
+        Ok(exercises)
     }
 
     async fn find_all(&self) -> Result<Vec<Exercise>, Error> {

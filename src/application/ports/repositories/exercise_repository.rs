@@ -8,6 +8,7 @@ use crate::domain::{
 #[async_trait]
 pub trait ExerciseRepository: Send + Sync {
     async fn find_by_id(&self, id: &str) -> Result<Option<Exercise>, Error>;
+    async fn find_by_ids(&self, ids: &[String]) -> Result<Vec<Exercise>, Error>;
     async fn find_all(&self) -> Result<Vec<Exercise>, Error>;
     async fn find_paginated(
         &self,

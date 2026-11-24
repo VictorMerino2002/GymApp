@@ -30,6 +30,10 @@ impl Error {
         Self::new(StatusCode::UNAUTHORIZED, message)
     }
 
+    pub fn forbidden(message: &str) -> Self {
+        Self::new(StatusCode::FORBIDDEN, message)
+    }
+
     pub fn bad_request(message: &str) -> Self {
         Self::new(StatusCode::BAD_REQUEST, message)
     }

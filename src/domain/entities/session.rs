@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use uuid::Uuid;
 
 use crate::domain::value_objects::Author;
 
@@ -17,4 +18,19 @@ pub struct SessionExercise {
     pub sets: u16,
     pub reps: u16,
     pub rest_secs: u16,
+}
+
+impl Session {
+    pub fn new(name: impl Into<String>, author: Author, exercises: Vec<SessionExercise>) -> Self {
+        Self {
+            id: Uuid::new_v4().into(),
+            name: name.into(),
+            author,
+            exercises,
+        }
+    }
+
+    pub fn is_authored_by(&self, user_id: &str) -> bool {
+        self.author.user_id == user_id
+    }
 }
