@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use aws_sdk_dynamodb::{Client, types::AttributeValue};
 
 use crate::{
-    application::ports::UserRepository,
+    application::ports::repositories::UserRepository,
     domain::{entities::User, value_objects::Error},
 };
 

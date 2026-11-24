@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use crate::{
     application::{
-        ports::{JwtEncoderPort, UserRepository},
+        ports::{JwtEncoderPort, repositories::UserRepository},
         use_cases::auth::{
             GenerateAuthUseCase, GenerateAuthUseCaseParams, GenerateAuthUseCaseResponse,
         },

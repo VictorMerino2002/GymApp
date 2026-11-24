@@ -1,3 +1,5 @@
+mod dynamodb_exercise_repository;
 mod dynamodb_user_repository;
 
+pub use dynamodb_exercise_repository::DynamodbExerciseRepository;
 pub use dynamodb_user_repository::DynamodbUserRepository;
