@@ -1,4 +1,5 @@
 mod dynamodb_batch;
+mod dynamodb_exercise_history_repository;
 mod dynamodb_exercise_repository;
 mod dynamodb_fav_routine_repository;
 mod dynamodb_fav_session_repository;
@@ -8,6 +9,7 @@ mod dynamodb_routine_repository;
 mod dynamodb_session_repository;
 mod dynamodb_user_repository;
 
+pub use dynamodb_exercise_history_repository::DynamodbExerciseHistoryRepository;
 pub use dynamodb_exercise_repository::DynamodbExerciseRepository;
 pub use dynamodb_fav_routine_repository::DynamodbFavRoutineRepository;
 pub use dynamodb_fav_session_repository::DynamodbFavSessionRepository;

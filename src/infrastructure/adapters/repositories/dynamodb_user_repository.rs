@@ -103,6 +103,48 @@ impl UserRepository for DynamodbUserRepository {
             .transpose()
     }
 
+    async fn update_progress(
+        &self,
+        user: &User,
+        expected_exercises_done: u32,
+    ) -> Result<bool, Error> {
+        let stats = serde_dynamo::to_attribute_value(user.stats)
+            .map_err(|_| Error::internal_server("Could not update user stats"))?;
+        let records = serde_dynamo::to_attribute_value(&user.personal_records)
+            .map_err(|_| Error::internal_server("Could not update user stats"))?;
+
+        let result = self
+            .client
+            .update_item()
+            .table_name(&self.table_name)
+            .key("id", AttributeValue::S(user.id.clone()))
+            .update_expression("SET #stats = :stats, #records = :records")
+            .condition_expression("attribute_exists(id) AND #stats.#done = :expected")
+            .expression_attribute_names("#stats", "stats")
+            .expression_attribute_names("#records", "personal_records")
+            .expression_attribute_names("#done", "exercises_done")
+            .expression_attribute_values(":stats", stats)
+            .expression_attribute_values(":records", records)
+            .expression_attribute_values(
+                ":expected",
+                AttributeValue::N(expected_exercises_done.to_string()),
+            )
+            .send()
+            .await;
+
+        match result {
+            Ok(_) => Ok(true),
+            Err(error)
+                if error
+                    .as_service_error()
+                    .is_some_and(|error| error.is_conditional_check_failed_exception()) =>
+            {
+                Ok(false)
+            }
+            Err(_) => Err(Error::internal_server("Could not update user stats")),
+        }
+    }
+
     async fn find_by_ids(&self, ids: &[String]) -> Result<Vec<User>, Error> {
         let items =
             batch_get_by_ids(&self.client, &self.table_name, ids, "Could not get users").await?;

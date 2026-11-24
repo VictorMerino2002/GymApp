@@ -1,4 +1,5 @@
 pub mod auth_routes;
+pub mod exercise_history_routes;
 pub mod exercise_routes;
 pub mod fav_routine_routes;
 pub mod fav_session_routes;
@@ -82,6 +83,16 @@ pub fn router(app_state: Arc<AppState>) -> Router {
         )
         .route("/me/friends", get(friendship_routes::list_friends))
         .route("/users", get(user_routes::list_users))
+        .route(
+            "/me/exercise-history",
+            get(exercise_history_routes::list_exercise_history)
+                .post(exercise_history_routes::create_exercise_history),
+        )
+        .route(
+            "/me/exercise-history/{id}",
+            get(exercise_history_routes::get_exercise_history)
+                .delete(exercise_history_routes::delete_exercise_history),
+        )
         .route_layer(from_extractor_with_state::<AuthUser, _>(app_state.clone()));
 
     public_routes.merge(protected_routes).with_state(app_state)

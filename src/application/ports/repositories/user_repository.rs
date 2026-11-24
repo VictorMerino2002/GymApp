@@ -8,6 +8,11 @@ use async_trait::async_trait;
 pub trait UserRepository: Send + Sync {
     async fn save(&self, user: &User) -> Result<(), Error>;
     async fn find_by_id(&self, id: &str) -> Result<Option<User>, Error>;
+    async fn update_progress(
+        &self,
+        user: &User,
+        expected_exercises_done: u32,
+    ) -> Result<bool, Error>;
     async fn find_by_ids(&self, ids: &[String]) -> Result<Vec<User>, Error>;
     async fn find_by_username(&self, username: &str) -> Result<Option<User>, Error>;
     async fn search_by_username(

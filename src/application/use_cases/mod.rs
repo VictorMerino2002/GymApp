@@ -1,4 +1,5 @@
 pub mod auth;
+pub mod exercise_history;
 pub mod exercises;
 pub mod fav_routines;
 pub mod fav_sessions;
