@@ -1,7 +1,11 @@
 use std::collections::HashMap;
 
 use async_trait::async_trait;
-use aws_sdk_dynamodb::{Client, types::AttributeValue};
+use aws_sdk_dynamodb::{
+    Client,
+    operation::transact_write_items::TransactWriteItemsError,
+    types::{AttributeValue, Put, TransactWriteItem},
+};
 
 use crate::{
     application::ports::repositories::UserRepository,
@@ -15,10 +19,10 @@ use crate::{
     },
 };
 
-const USERNAME_INDEX: &str = "username-index";
 const USERNAME_SEARCH_INDEX: &str = "username-search-index";
 const SEARCH_PARTITION: &str = "user";
 const CURSOR_SEPARATOR: char = '#';
+const USERNAME_MARKER_PREFIX: &str = "username#";
 
 pub struct DynamodbUserRepository {
     client: Client,
@@ -32,6 +36,46 @@ impl DynamodbUserRepository {
             table_name: table_name.into(),
         }
     }
+}
+
+fn user_item(user: &User) -> Result<Item, Error> {
+    let mut item: Item =
+        serde_dynamo::to_item(user).map_err(|_| Error::internal_server("Could not save user"))?;
+
+    item.insert(
+        "search_pk".to_string(),
+        AttributeValue::S(SEARCH_PARTITION.to_string()),
+    );
+    item.insert(
+        "username_lower".to_string(),
+        AttributeValue::S(user.username.to_lowercase()),
+    );
+
+    Ok(item)
+}
+
+fn username_marker_item(user: &User) -> Item {
+    HashMap::from([
+        (
+            "id".to_string(),
+            AttributeValue::S(format!(
+                "{USERNAME_MARKER_PREFIX}{}",
+                user.username.to_lowercase()
+            )),
+        ),
+        ("user_id".to_string(), AttributeValue::S(user.id.clone())),
+    ])
+}
+
+fn new_item_put(table_name: &str, item: Item) -> Result<TransactWriteItem, Error> {
+    let put = Put::builder()
+        .table_name(table_name)
+        .set_item(Some(item))
+        .condition_expression("attribute_not_exists(id)")
+        .build()
+        .map_err(|_| Error::internal_server("Could not create user"))?;
+
+    Ok(TransactWriteItem::builder().put(put).build())
 }
 
 fn search_cursor(item: &Item) -> Option<String> {
@@ -60,23 +104,41 @@ fn search_start_key(cursor: &str) -> Result<Item, Error> {
 
 #[async_trait]
 impl UserRepository for DynamodbUserRepository {
+    async fn create(&self, user: &User) -> Result<(), Error> {
+        let result = self
+            .client
+            .transact_write_items()
+            .transact_items(new_item_put(&self.table_name, username_marker_item(user))?)
+            .transact_items(new_item_put(&self.table_name, user_item(user)?)?)
+            .send()
+            .await;
+
+        match result {
+            Ok(_) => Ok(()),
+            Err(error) => {
+                let username_taken = matches!(
+                    error.as_service_error(),
+                    Some(TransactWriteItemsError::TransactionCanceledException(canceled))
+                        if canceled
+                            .cancellation_reasons()
+                            .iter()
+                            .any(|reason| reason.code() == Some("ConditionalCheckFailed"))
+                );
+
+                if username_taken {
+                    Err(Error::conflict("Username already taken"))
+                } else {
+                    Err(Error::internal_server("Could not create user"))
+                }
+            }
+        }
+    }
+
     async fn save(&self, user: &User) -> Result<(), Error> {
-        let mut item: Item = serde_dynamo::to_item(user)
-            .map_err(|_| Error::internal_server("Could not save user"))?;
-
-        item.insert(
-            "search_pk".to_string(),
-            AttributeValue::S(SEARCH_PARTITION.to_string()),
-        );
-        item.insert(
-            "username_lower".to_string(),
-            AttributeValue::S(user.username.to_lowercase()),
-        );
-
         self.client
             .put_item()
             .table_name(&self.table_name)
-            .set_item(Some(item))
+            .set_item(Some(user_item(user)?))
             .send()
             .await
             .map_err(|_| Error::internal_server("Could not save user"))?;
@@ -85,6 +147,10 @@ impl UserRepository for DynamodbUserRepository {
     }
 
     async fn find_by_id(&self, id: &str) -> Result<Option<User>, Error> {
+        if id.starts_with(USERNAME_MARKER_PREFIX) {
+            return Ok(None);
+        }
+
         let output = self
             .client
             .get_item()
@@ -157,9 +223,13 @@ impl UserRepository for DynamodbUserRepository {
             .client
             .query()
             .table_name(&self.table_name)
-            .index_name(USERNAME_INDEX)
-            .key_condition_expression("username = :username")
-            .expression_attribute_values(":username", AttributeValue::S(username.to_string()))
+            .index_name(USERNAME_SEARCH_INDEX)
+            .key_condition_expression("search_pk = :search_pk AND username_lower = :username")
+            .expression_attribute_values(
+                ":search_pk",
+                AttributeValue::S(SEARCH_PARTITION.to_string()),
+            )
+            .expression_attribute_values(":username", AttributeValue::S(username.to_lowercase()))
             .limit(1)
             .send()
             .await

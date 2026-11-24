@@ -70,8 +70,6 @@ resources:
         AttributeDefinitions:
           - AttributeName: id
             AttributeType: S
-          - AttributeName: username
-            AttributeType: S
           - AttributeName: search_pk
             AttributeType: S
           - AttributeName: username_lower
@@ -80,12 +78,6 @@ resources:
           - AttributeName: id
             KeyType: HASH
         GlobalSecondaryIndexes:
-          - IndexName: username-index
-            KeySchema:
-              - AttributeName: username
-                KeyType: HASH
-            Projection:
-              ProjectionType: ALL
           - IndexName: username-search-index
             KeySchema:
               - AttributeName: search_pk

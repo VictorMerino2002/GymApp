@@ -6,6 +6,7 @@ use async_trait::async_trait;
 
 #[async_trait]
 pub trait UserRepository: Send + Sync {
+    async fn create(&self, user: &User) -> Result<(), Error>;
     async fn save(&self, user: &User) -> Result<(), Error>;
     async fn find_by_id(&self, id: &str) -> Result<Option<User>, Error>;
     async fn update_progress(

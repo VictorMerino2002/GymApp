@@ -4,8 +4,10 @@ use chrono::{Datelike, Duration, NaiveDate};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::domain::value_objects::Role;
+use crate::domain::value_objects::{Error, Role};
 
+const MIN_USERNAME_LENGTH: usize = 3;
+const MAX_USERNAME_LENGTH: usize = 20;
 const XP_PER_SET: u32 = 10;
 const XP_PERSONAL_RECORD: u32 = 25;
 const XP_PER_STREAK_WEEK: u32 = 5;
@@ -57,6 +59,33 @@ impl Stats {
     pub fn level(&self) -> u32 {
         level_from_xp(self.xp)
     }
+}
+
+pub fn validate_username(username: &str) -> Result<(), Error> {
+    let length = username.chars().count();
+
+    if !(MIN_USERNAME_LENGTH..=MAX_USERNAME_LENGTH).contains(&length) {
+        return Err(Error::bad_request(&format!(
+            "username must be between {MIN_USERNAME_LENGTH} and {MAX_USERNAME_LENGTH} characters"
+        )));
+    }
+
+    if !username
+        .chars()
+        .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '.')
+    {
+        return Err(Error::bad_request(
+            "username can only contain letters, numbers, '_' and '.'",
+        ));
+    }
+
+    if !username.starts_with(|c: char| c.is_ascii_alphanumeric()) {
+        return Err(Error::bad_request(
+            "username must start with a letter or a number",
+        ));
+    }
+
+    Ok(())
 }
 
 pub fn level_from_xp(xp: u32) -> u32 {

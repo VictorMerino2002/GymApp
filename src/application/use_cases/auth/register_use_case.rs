@@ -10,7 +10,10 @@ use crate::{
             GenerateAuthUseCase, GenerateAuthUseCaseParams, GenerateAuthUseCaseResponse,
         },
     },
-    domain::{entities::User, value_objects::Error},
+    domain::{
+        entities::{User, validate_username},
+        value_objects::Error,
+    },
 };
 
 pub struct RegisterUseCase {
@@ -29,6 +32,8 @@ impl RegisterUseCase {
         &self,
         params: RegisterUseCaseParams,
     ) -> Result<GenerateAuthUseCaseResponse, Error> {
+        validate_username(&params.username)?;
+
         let password_length = params.password.chars().count();
 
         if !(MIN_PASSWORD_LENGTH..=MAX_PASSWORD_LENGTH).contains(&password_length) {
@@ -43,15 +48,12 @@ impl RegisterUseCase {
             .await?;
 
         if existing_user.is_some() {
-            return Err(Error::bad_request(&format!(
-                "User {} already exists",
-                params.username
-            )));
+            return Err(Error::conflict("Username already taken"));
         }
 
         let password_hash = self.password_hasher.hash(&params.password).await?;
         let new_user = User::new(&params.username, password_hash);
-        self.user_repository.save(&new_user).await?;
+        self.user_repository.create(&new_user).await?;
 
         let generate_auth_use_case = GenerateAuthUseCase {
             jwt_encoder: Arc::clone(&self.jwt_encoder),
