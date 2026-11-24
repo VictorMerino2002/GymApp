@@ -17,4 +17,5 @@ pub trait FriendshipRepository: Send + Sync {
     ) -> Result<Page<Friendship>, Error>;
     async fn save(&self, friendship: &Friendship) -> Result<(), Error>;
     async fn delete(&self, user_a: &str, user_b: &str) -> Result<(), Error>;
+    async fn delete_by_user(&self, user_id: &str) -> Result<(), Error>;
 }

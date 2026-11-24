@@ -17,4 +17,5 @@ pub trait FavSessionRepository: Send + Sync {
     async fn save(&self, fav_session: &FavSession) -> Result<(), Error>;
     async fn delete(&self, user_id: &str, session_id: &str) -> Result<(), Error>;
     async fn delete_by_session(&self, session_id: &str) -> Result<(), Error>;
+    async fn delete_by_user(&self, user_id: &str) -> Result<(), Error>;
 }

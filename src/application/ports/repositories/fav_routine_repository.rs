@@ -17,4 +17,5 @@ pub trait FavRoutineRepository: Send + Sync {
     async fn save(&self, fav_routine: &FavRoutine) -> Result<(), Error>;
     async fn delete(&self, user_id: &str, routine_id: &str) -> Result<(), Error>;
     async fn delete_by_routine(&self, routine_id: &str) -> Result<(), Error>;
+    async fn delete_by_user(&self, user_id: &str) -> Result<(), Error>;
 }

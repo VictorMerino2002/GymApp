@@ -17,4 +17,5 @@ pub trait ExerciseHistoryRepository: Send + Sync {
     ) -> Result<Page<ExerciseHistory>, Error>;
     async fn save(&self, history: &ExerciseHistory) -> Result<(), Error>;
     async fn delete(&self, user_id: &str, id: &str) -> Result<(), Error>;
+    async fn delete_by_user(&self, user_id: &str) -> Result<(), Error>;
 }

@@ -5,7 +5,7 @@ use std::{
 
 use aws_sdk_dynamodb::{
     Client,
-    types::{DeleteRequest, KeysAndAttributes, WriteRequest},
+    types::{AttributeValue, DeleteRequest, KeysAndAttributes, WriteRequest},
 };
 
 use crate::{
@@ -111,4 +111,33 @@ pub async fn batch_delete_keys(
     }
 
     Ok(())
+}
+
+pub async fn delete_partition(
+    client: &Client,
+    table_name: &str,
+    index_name: Option<&str>,
+    partition_attribute: &str,
+    partition_value: &str,
+    key_attributes: [&str; 2],
+    error_message: &str,
+) -> Result<(), Error> {
+    let keys = client
+        .query()
+        .table_name(table_name)
+        .set_index_name(index_name.map(str::to_string))
+        .key_condition_expression("#pk = :pk")
+        .projection_expression("#k0, #k1")
+        .expression_attribute_names("#pk", partition_attribute)
+        .expression_attribute_names("#k0", key_attributes[0])
+        .expression_attribute_names("#k1", key_attributes[1])
+        .expression_attribute_values(":pk", AttributeValue::S(partition_value.to_string()))
+        .into_paginator()
+        .items()
+        .send()
+        .collect::<Result<Vec<_>, _>>()
+        .await
+        .map_err(|_| Error::internal_server(error_message))?;
+
+    batch_delete_keys(client, table_name, keys, error_message).await
 }

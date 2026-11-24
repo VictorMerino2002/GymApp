@@ -9,7 +9,10 @@ use crate::{
         entities::{Friendship, FriendshipStatus},
         value_objects::{Error, Page},
     },
-    infrastructure::adapters::repositories::dynamodb_pagination::{Item, RawPage, collect_page},
+    infrastructure::adapters::repositories::{
+        dynamodb_batch::delete_partition,
+        dynamodb_pagination::{Item, RawPage, collect_page},
+    },
 };
 
 const USER2_INDEX: &str = "user2-index";
@@ -251,6 +254,23 @@ impl FriendshipRepository for DynamodbFriendshipRepository {
             .send()
             .await
             .map_err(|_| Error::internal_server("Could not delete friendship"))?;
+
+        Ok(())
+    }
+
+    async fn delete_by_user(&self, user_id: &str) -> Result<(), Error> {
+        for side in [Side::User1, Side::User2] {
+            delete_partition(
+                &self.client,
+                &self.table_name,
+                side.index(),
+                side.own_attribute(),
+                user_id,
+                ["user1_id", "user2_id"],
+                "Could not delete friendships",
+            )
+            .await?;
+        }
 
         Ok(())
     }

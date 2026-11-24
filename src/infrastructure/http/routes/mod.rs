@@ -29,7 +29,9 @@ pub fn router(app_state: Arc<AppState>) -> Router {
         .route("/auth/logout", post(auth_routes::logout))
         .route(
             "/me",
-            get(me_routes::get_profile).patch(me_routes::update_profile),
+            get(me_routes::get_profile)
+                .patch(me_routes::update_profile)
+                .delete(me_routes::delete_account),
         )
         .route("/me/password", post(me_routes::change_password))
         .route(

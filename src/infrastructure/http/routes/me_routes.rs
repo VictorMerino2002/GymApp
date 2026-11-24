@@ -5,8 +5,9 @@ use serde::{Deserialize, Deserializer};
 
 use crate::{
     application::use_cases::me::{
-        ChangePasswordUseCase, ChangePasswordUseCaseParams, GetProfileUseCase,
-        GetProfileUseCaseParams, UpdateProfileUseCase, UpdateProfileUseCaseParams,
+        ChangePasswordUseCase, ChangePasswordUseCaseParams, DeleteAccountUseCase,
+        DeleteAccountUseCaseParams, GetProfileUseCase, GetProfileUseCaseParams,
+        UpdateProfileUseCase, UpdateProfileUseCaseParams,
     },
     infrastructure::{
         bootstrap::AppState,
@@ -37,6 +38,11 @@ pub struct UpdateProfileRequest {
 pub struct ChangePasswordRequest {
     current_password: String,
     new_password: String,
+}
+
+#[derive(Deserialize)]
+pub struct DeleteAccountRequest {
+    password: String,
 }
 
 pub async fn get_profile(
@@ -92,5 +98,28 @@ pub async fn change_password(
     };
 
     let result = use_case.execute(params).await.map(AuthResponse::from);
+    ApiResponse::default(result)
+}
+
+pub async fn delete_account(
+    State(app_state): State<Arc<AppState>>,
+    user: AuthUser,
+    ApiJson(payload): ApiJson<DeleteAccountRequest>,
+) -> impl IntoResponse {
+    let use_case = DeleteAccountUseCase {
+        user_repository: app_state.user_repository.clone(),
+        friendship_repository: app_state.friendship_repository.clone(),
+        fav_routine_repository: app_state.fav_routine_repository.clone(),
+        fav_session_repository: app_state.fav_session_repository.clone(),
+        exercise_history_repository: app_state.exercise_history_repository.clone(),
+        password_hasher: app_state.password_hasher.clone(),
+    };
+
+    let params = DeleteAccountUseCaseParams {
+        user_id: user.user_id,
+        password: payload.password,
+    };
+
+    let result = use_case.execute(params).await;
     ApiResponse::default(result)
 }

@@ -10,7 +10,7 @@ use crate::{
         value_objects::{Error, Page},
     },
     infrastructure::adapters::repositories::{
-        dynamodb_batch::batch_delete_keys,
+        dynamodb_batch::delete_partition,
         dynamodb_pagination::{Item, collect_page},
     },
 };
@@ -131,25 +131,26 @@ impl FavRoutineRepository for DynamodbFavRoutineRepository {
     }
 
     async fn delete_by_routine(&self, routine_id: &str) -> Result<(), Error> {
-        let keys = self
-            .client
-            .query()
-            .table_name(&self.table_name)
-            .index_name(ROUTINE_INDEX)
-            .key_condition_expression("routine_id = :routine_id")
-            .expression_attribute_values(":routine_id", AttributeValue::S(routine_id.to_string()))
-            .projection_expression("user_id, routine_id")
-            .into_paginator()
-            .items()
-            .send()
-            .collect::<Result<Vec<_>, _>>()
-            .await
-            .map_err(|_| Error::internal_server("Could not delete favorite routines"))?;
-
-        batch_delete_keys(
+        delete_partition(
             &self.client,
             &self.table_name,
-            keys,
+            Some(ROUTINE_INDEX),
+            "routine_id",
+            routine_id,
+            ["user_id", "routine_id"],
+            "Could not delete favorite routines",
+        )
+        .await
+    }
+
+    async fn delete_by_user(&self, user_id: &str) -> Result<(), Error> {
+        delete_partition(
+            &self.client,
+            &self.table_name,
+            None,
+            "user_id",
+            user_id,
+            ["user_id", "routine_id"],
             "Could not delete favorite routines",
         )
         .await

@@ -345,6 +345,30 @@ impl UserRepository for DynamodbUserRepository {
             .ok_or_else(|| Error::internal_server("Could not update password"))
     }
 
+    async fn delete(&self, user: &User) -> Result<(), Error> {
+        let delete_marker = Delete::builder()
+            .table_name(&self.table_name)
+            .set_key(Some(username_marker_key(&user.username)))
+            .build()
+            .map_err(|_| Error::internal_server("Could not delete user"))?;
+
+        let delete_user = Delete::builder()
+            .table_name(&self.table_name)
+            .key("id", AttributeValue::S(user.id.clone()))
+            .build()
+            .map_err(|_| Error::internal_server("Could not delete user"))?;
+
+        self.client
+            .transact_write_items()
+            .transact_items(TransactWriteItem::builder().delete(delete_marker).build())
+            .transact_items(TransactWriteItem::builder().delete(delete_user).build())
+            .send()
+            .await
+            .map_err(|_| Error::internal_server("Could not delete user"))?;
+
+        Ok(())
+    }
+
     async fn find_by_ids(&self, ids: &[String]) -> Result<Vec<User>, Error> {
         let items =
             batch_get_by_ids(&self.client, &self.table_name, ids, "Could not get users").await?;

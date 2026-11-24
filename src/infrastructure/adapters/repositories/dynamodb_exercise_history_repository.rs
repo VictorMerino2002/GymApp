@@ -9,7 +9,10 @@ use crate::{
         entities::ExerciseHistory,
         value_objects::{Error, Page},
     },
-    infrastructure::adapters::repositories::dynamodb_pagination::{Item, collect_page},
+    infrastructure::adapters::repositories::{
+        dynamodb_batch::delete_partition,
+        dynamodb_pagination::{Item, collect_page},
+    },
 };
 
 pub struct DynamodbExerciseHistoryRepository {
@@ -136,5 +139,18 @@ impl ExerciseHistoryRepository for DynamodbExerciseHistoryRepository {
             .map_err(|_| Error::internal_server("Could not delete exercise history"))?;
 
         Ok(())
+    }
+
+    async fn delete_by_user(&self, user_id: &str) -> Result<(), Error> {
+        delete_partition(
+            &self.client,
+            &self.table_name,
+            None,
+            "user_id",
+            user_id,
+            ["user_id", "sk"],
+            "Could not delete exercise history",
+        )
+        .await
     }
 }
