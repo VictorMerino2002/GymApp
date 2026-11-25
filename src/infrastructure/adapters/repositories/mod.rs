@@ -5,7 +5,7 @@ mod dynamodb_exercise_repository;
 mod dynamodb_fav_routine_repository;
 mod dynamodb_fav_session_repository;
 mod dynamodb_friendship_repository;
-mod dynamodb_pagination;
+pub(crate) mod dynamodb_pagination;
 mod dynamodb_routine_repository;
 mod dynamodb_session_repository;
 mod dynamodb_user_repository;

@@ -12,6 +12,8 @@ use crate::{
 mod application;
 mod domain;
 mod infrastructure;
+#[cfg(test)]
+mod tests;
 
 #[tokio::main]
 async fn main() -> Result<(), lambda_http::Error> {

@@ -1,0 +1,9 @@
+mod auth;
+mod exercise;
+mod friendship;
+mod pagination;
+mod routine;
+mod session;
+mod social;
+mod support;
+mod user;

@@ -85,35 +85,3 @@ impl Friendship {
         self.status
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn pair_is_canonical_regardless_of_order() {
-        let a = Friendship::request("b".into(), "a".into()).unwrap();
-        let b = Friendship::request("a".into(), "b".into()).unwrap();
-        assert_eq!(a.user1_id(), b.user1_id());
-        assert_eq!(a.user2_id(), b.user2_id());
-        assert_eq!(a.user1_id(), "a");
-    }
-
-    #[test]
-    fn rejects_self_friendship() {
-        assert_eq!(
-            Friendship::request("a".into(), "a".into()),
-            Err(FriendshipError::SelfFriendship)
-        );
-    }
-
-    #[test]
-    fn only_addressee_can_accept() {
-        let mut f = Friendship::request("a".into(), "b".into()).unwrap();
-        assert_eq!(f.accept("a"), Err(FriendshipError::NotAddressee));
-        assert_eq!(f.accept("c"), Err(FriendshipError::NotAddressee));
-        assert_eq!(f.accept("b"), Ok(()));
-        assert_eq!(f.status(), FriendshipStatus::Accepted);
-        assert_eq!(f.accept("b"), Err(FriendshipError::AlreadyAccepted));
-    }
-}
