@@ -11,6 +11,7 @@ use crate::{
     infrastructure::{bootstrap::AppState, http::value_objects::ApiResponse},
 };
 
+#[derive(Clone)]
 pub struct AuthUser {
     pub user_id: String,
     pub role: Role,
@@ -23,6 +24,10 @@ impl FromRequestParts<Arc<AppState>> for AuthUser {
         parts: &mut Parts,
         app_state: &Arc<AppState>,
     ) -> Result<Self, Self::Rejection> {
+        if let Some(auth_user) = parts.extensions.get::<AuthUser>() {
+            return Ok(auth_user.clone());
+        }
+
         let token = parts
             .headers
             .get(AUTHORIZATION)
@@ -39,10 +44,24 @@ impl FromRequestParts<Arc<AppState>> for AuthUser {
             return Err(unauthorized("Invalid token"));
         }
 
-        Ok(Self {
-            user_id: jwt.sub,
-            role: jwt.role,
-        })
+        let user = app_state
+            .user_repository
+            .find_by_id(&jwt.sub)
+            .await
+            .map_err(|error| ApiResponse::<()>::default(Err(error)).into_response())?
+            .ok_or_else(|| unauthorized("Invalid token"))?;
+
+        if jwt.token_version != user.token_version {
+            return Err(unauthorized("Invalid token"));
+        }
+
+        let auth_user = Self {
+            user_id: user.id,
+            role: user.role,
+        };
+        parts.extensions.insert(auth_user.clone());
+
+        Ok(auth_user)
     }
 }
 
