@@ -9,5 +9,6 @@ pub mod me;
 pub mod routines;
 pub mod sessions;
 pub mod social;
+pub mod uploads;
 pub mod user_progress;
 pub mod users;

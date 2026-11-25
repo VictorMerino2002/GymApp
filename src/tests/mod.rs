@@ -6,4 +6,5 @@ mod routine;
 mod session;
 mod social;
 mod support;
+mod upload;
 mod user;

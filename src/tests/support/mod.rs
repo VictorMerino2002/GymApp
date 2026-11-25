@@ -3,6 +3,7 @@ mod exercise_history_repository;
 mod exercise_repository;
 mod fav_routine_repository;
 mod fav_session_repository;
+mod file_storage;
 mod friendship_repository;
 mod password_hasher;
 mod routine_repository;
@@ -24,6 +25,7 @@ pub use exercise_history_repository::InMemoryExerciseHistoryRepository;
 pub use exercise_repository::InMemoryExerciseRepository;
 pub use fav_routine_repository::InMemoryFavRoutineRepository;
 pub use fav_session_repository::InMemoryFavSessionRepository;
+pub use file_storage::FakeFileStorage;
 pub use friendship_repository::InMemoryFriendshipRepository;
 pub use password_hasher::FakePasswordHasher;
 pub use routine_repository::InMemoryRoutineRepository;
@@ -81,5 +83,6 @@ pub fn app_state(user_repository: Arc<InMemoryUserRepository>) -> Arc<AppState> 
         friendship_repository: Arc::new(InMemoryFriendshipRepository::default()),
         jwt_encoder: jwt_encoder(),
         password_hasher: Arc::new(FakePasswordHasher::default()),
+        file_storage: Arc::new(FakeFileStorage::default()),
     })
 }

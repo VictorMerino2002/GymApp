@@ -8,6 +8,7 @@ pub mod me_routes;
 pub mod routine_routes;
 pub mod session_routes;
 pub mod social_routes;
+pub mod upload_routes;
 pub mod user_routes;
 
 use std::sync::Arc;
@@ -100,6 +101,7 @@ pub fn router(app_state: Arc<AppState>) -> Router {
         .route("/users", get(user_routes::list_users))
         .route("/users/{id}", get(social_routes::get_user_profile))
         .route("/users/{id}/role", put(user_routes::change_user_role))
+        .route("/uploads", post(upload_routes::create_upload))
         .route("/me/feed", get(social_routes::get_feed))
         .route("/me/leaderboard", get(social_routes::get_leaderboard))
         .route(

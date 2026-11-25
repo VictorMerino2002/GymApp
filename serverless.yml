@@ -21,6 +21,8 @@ provider:
     FAV_ROUTINES_TABLE: ${self:custom.tables.favRoutines}
     FAV_SESSIONS_TABLE: ${self:custom.tables.favSessions}
     FRIENDSHIPS_TABLE: ${self:custom.tables.friendships}
+    MEDIA_BUCKET: !Ref MediaBucket
+    MEDIA_BASE_URL: !Join ['', ['https://', !GetAtt MediaDistribution.DomainName]]
   iam:
     role:
       statements:
@@ -38,6 +40,11 @@ provider:
           Resource:
             - arn:aws:dynamodb:${aws:region}:${aws:accountId}:table/${self:service}-${sls:stage}-*
             - arn:aws:dynamodb:${aws:region}:${aws:accountId}:table/${self:service}-${sls:stage}-*/index/*
+        - Effect: Allow
+          Action:
+            - s3:PutObject
+          Resource:
+            - !Join ['', [!GetAtt MediaBucket.Arn, '/*']]
 
 custom:
   throttling:
@@ -47,6 +54,8 @@ custom:
     auth:
       rate: 5
       burst: 10
+  media:
+    bucket: ${self:service}-${sls:stage}-media-${aws:accountId}
   tables:
     users: ${self:service}-${sls:stage}-users
     activities: ${self:service}-${sls:stage}-activities
@@ -282,3 +291,87 @@ resources:
                 KeyType: RANGE
             Projection:
               ProjectionType: ALL
+
+    MediaBucket:
+      Type: AWS::S3::Bucket
+      Properties:
+        BucketName: ${self:custom.media.bucket}
+        OwnershipControls:
+          Rules:
+            - ObjectOwnership: BucketOwnerEnforced
+        PublicAccessBlockConfiguration:
+          BlockPublicAcls: true
+          BlockPublicPolicy: true
+          IgnorePublicAcls: true
+          RestrictPublicBuckets: true
+        BucketEncryption:
+          ServerSideEncryptionConfiguration:
+            - ServerSideEncryptionByDefault:
+                SSEAlgorithm: AES256
+        CorsConfiguration:
+          CorsRules:
+            - AllowedMethods:
+                - PUT
+              AllowedOrigins:
+                - '*'
+              AllowedHeaders:
+                - content-type
+                - content-length
+              MaxAge: 3000
+
+    MediaOriginAccessControl:
+      Type: AWS::CloudFront::OriginAccessControl
+      Properties:
+        OriginAccessControlConfig:
+          Name: ${self:service}-${sls:stage}-media
+          OriginAccessControlOriginType: s3
+          SigningBehavior: always
+          SigningProtocol: sigv4
+
+    MediaDistribution:
+      Type: AWS::CloudFront::Distribution
+      Properties:
+        DistributionConfig:
+          Enabled: true
+          Comment: ${self:service}-${sls:stage} media
+          PriceClass: PriceClass_100
+          HttpVersion: http2and3
+          Origins:
+            - Id: media-bucket
+              DomainName: !GetAtt MediaBucket.RegionalDomainName
+              OriginAccessControlId: !GetAtt MediaOriginAccessControl.Id
+              S3OriginConfig:
+                OriginAccessIdentity: ''
+          DefaultCacheBehavior:
+            TargetOriginId: media-bucket
+            ViewerProtocolPolicy: redirect-to-https
+            AllowedMethods:
+              - GET
+              - HEAD
+            CachedMethods:
+              - GET
+              - HEAD
+            Compress: true
+            CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6
+
+    MediaBucketPolicy:
+      Type: AWS::S3::BucketPolicy
+      Properties:
+        Bucket: !Ref MediaBucket
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Principal:
+                Service: cloudfront.amazonaws.com
+              Action: s3:GetObject
+              Resource: !Join ['', [!GetAtt MediaBucket.Arn, '/*']]
+              Condition:
+                StringEquals:
+                  AWS:SourceArn: !Join ['', ['arn:aws:cloudfront::${aws:accountId}:distribution/', !Ref MediaDistribution]]
+
+  Outputs:
+    MediaBucketName:
+      Value: !Ref MediaBucket
+    MediaBaseUrl:
+      Value: !Join ['', ['https://', !GetAtt MediaDistribution.DomainName]]

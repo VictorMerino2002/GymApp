@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use crate::{
     application::ports::{
-        JwtEncoderPort, PasswordHasherPort,
+        FileStoragePort, JwtEncoderPort, PasswordHasherPort,
         repositories::{
             ActivityRepository, ExerciseHistoryRepository, ExerciseRepository,
             FavRoutineRepository, FavSessionRepository, FriendshipRepository, RoutineRepository,
@@ -10,7 +10,7 @@ use crate::{
         },
     },
     infrastructure::adapters::{
-        Argon2PasswordHasher, JwtEncoder,
+        Argon2PasswordHasher, JwtEncoder, S3FileStorage,
         repositories::{
             DynamodbActivityRepository, DynamodbExerciseHistoryRepository,
             DynamodbExerciseRepository, DynamodbFavRoutineRepository, DynamodbFavSessionRepository,
@@ -32,6 +32,7 @@ pub struct AppState {
     pub friendship_repository: Arc<dyn FriendshipRepository>,
     pub jwt_encoder: Arc<dyn JwtEncoderPort>,
     pub password_hasher: Arc<dyn PasswordHasherPort>,
+    pub file_storage: Arc<dyn FileStoragePort>,
 }
 
 impl AppState {
@@ -70,6 +71,14 @@ impl AppState {
         let fav_session_repository =
             DynamodbFavSessionRepository::new(dynamodb.clone(), fav_sessions_table);
         let friendship_repository = DynamodbFriendshipRepository::new(dynamodb, friendships_table);
+        let media_bucket = std::env::var("MEDIA_BUCKET").expect("MEDIA_BUCKET env var not set");
+        let media_base_url =
+            std::env::var("MEDIA_BASE_URL").expect("MEDIA_BASE_URL env var not set");
+        let file_storage = S3FileStorage::new(
+            aws_sdk_s3::Client::new(&aws_config),
+            media_bucket,
+            media_base_url,
+        );
         let jwt_secret = std::env::var("JWT_SECRET").expect("JWT_SECRET env var not set");
         let jwt_encoder = JwtEncoder::new(jwt_secret);
 
@@ -85,6 +94,7 @@ impl AppState {
             friendship_repository: Arc::new(friendship_repository),
             jwt_encoder: Arc::new(jwt_encoder),
             password_hasher: Arc::new(Argon2PasswordHasher),
+            file_storage: Arc::new(file_storage),
         }
     }
 }
