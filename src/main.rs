@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use crate::{
+use api::{
     application::ports::ApiListener,
     infrastructure::{
         adapters::{LambdaApiListener, LocalApiListener},
@@ -8,12 +8,6 @@ use crate::{
         http::routes::router,
     },
 };
-
-mod application;
-mod domain;
-mod infrastructure;
-#[cfg(test)]
-mod tests;
 
 #[tokio::main]
 async fn main() -> Result<(), lambda_http::Error> {

@@ -11,7 +11,7 @@ use crate::{
     application::ports::repositories::UserRepository,
     domain::{
         entities::User,
-        value_objects::{Error, Page},
+        value_objects::{Error, Page, Role},
     },
     infrastructure::adapters::repositories::{
         dynamodb_batch::batch_get_by_ids,
@@ -241,6 +241,39 @@ impl UserRepository for DynamodbUserRepository {
                 Ok(false)
             }
             Err(_) => Err(Error::internal_server("Could not update user stats")),
+        }
+    }
+
+    async fn update_role(&self, user_id: &str, role: Role) -> Result<(), Error> {
+        if user_id.starts_with(USERNAME_MARKER_PREFIX) {
+            return Err(Error::not_found("User not found"));
+        }
+
+        let role = serde_dynamo::to_attribute_value(role)
+            .map_err(|_| Error::internal_server("Could not update role"))?;
+
+        let result = self
+            .client
+            .update_item()
+            .table_name(&self.table_name)
+            .key("id", AttributeValue::S(user_id.to_string()))
+            .update_expression("SET #role = :role")
+            .condition_expression("attribute_exists(id)")
+            .expression_attribute_names("#role", "role")
+            .expression_attribute_values(":role", role)
+            .send()
+            .await;
+
+        match result {
+            Ok(_) => Ok(()),
+            Err(error)
+                if error
+                    .as_service_error()
+                    .is_some_and(|error| error.is_conditional_check_failed_exception()) =>
+            {
+                Err(Error::not_found("User not found"))
+            }
+            Err(_) => Err(Error::internal_server("Could not update role")),
         }
     }
 

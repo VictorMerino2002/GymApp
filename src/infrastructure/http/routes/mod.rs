@@ -15,7 +15,7 @@ use std::sync::Arc;
 use axum::{
     Router,
     middleware::from_extractor_with_state,
-    routing::{get, post},
+    routing::{get, post, put},
 };
 
 use crate::infrastructure::{bootstrap::AppState, http::extractors::AuthUser};
@@ -99,6 +99,7 @@ pub fn router(app_state: Arc<AppState>) -> Router {
         .route("/me/friends", get(friendship_routes::list_friends))
         .route("/users", get(user_routes::list_users))
         .route("/users/{id}", get(social_routes::get_user_profile))
+        .route("/users/{id}/role", put(user_routes::change_user_role))
         .route("/me/feed", get(social_routes::get_feed))
         .route("/me/leaderboard", get(social_routes::get_leaderboard))
         .route(

@@ -12,7 +12,7 @@ use crate::{
     application::ports::repositories::UserRepository,
     domain::{
         entities::User,
-        value_objects::{Error, Page},
+        value_objects::{Error, Page, Role},
     },
 };
 
@@ -128,6 +128,15 @@ impl UserRepository for InMemoryUserRepository {
         stored.stats = user.stats;
         stored.personal_records = user.personal_records.clone();
         Ok(true)
+    }
+
+    async fn update_role(&self, user_id: &str, role: Role) -> Result<(), Error> {
+        let mut users = self.users.lock().unwrap();
+        let user = users
+            .get_mut(user_id)
+            .ok_or_else(|| Error::not_found("User not found"))?;
+        user.role = role;
+        Ok(())
     }
 
     async fn find_by_ids(&self, ids: &[String]) -> Result<Vec<User>, Error> {

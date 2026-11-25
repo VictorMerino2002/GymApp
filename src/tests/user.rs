@@ -20,6 +20,10 @@ use crate::{
                 UpdateProfileUseCase, UpdateProfileUseCaseParams,
             },
             user_progress::update_user_progress,
+            users::{
+                ChangeUserRoleUseCase, ChangeUserRoleUseCaseParams, SetRoleByUsernameUseCase,
+                SetRoleByUsernameUseCaseParams,
+            },
         },
     },
     domain::{
@@ -619,4 +623,98 @@ async fn delete_account_requires_password() {
     assert!(context.users.get("u1").is_some());
     assert_eq!(context.friendships.count(), 1);
     assert_eq!(context.history.all().len(), 2);
+}
+
+async fn change_role(
+    users: &Arc<InMemoryUserRepository>,
+    admin_id: &str,
+    user_id: &str,
+    role: Role,
+) -> Result<Role, Error> {
+    ChangeUserRoleUseCase {
+        user_repository: users.clone(),
+    }
+    .execute(ChangeUserRoleUseCaseParams {
+        admin_id: admin_id.to_string(),
+        user_id: user_id.to_string(),
+        role,
+    })
+    .await
+    .map(|changed| changed.role)
+}
+
+#[tokio::test]
+async fn admin_can_promote_and_demote_users() {
+    let users = users();
+
+    assert_eq!(
+        change_role(&users, "u1", "u2", Role::Admin).await.unwrap(),
+        Role::Admin
+    );
+    assert_eq!(users.get("u2").unwrap().role, Role::Admin);
+
+    assert_eq!(
+        change_role(&users, "u1", "u2", Role::User).await.unwrap(),
+        Role::User
+    );
+    assert_eq!(users.get("u2").unwrap().role, Role::User);
+}
+
+#[tokio::test]
+async fn admin_cannot_change_own_role() {
+    let users = users();
+    let error = change_role(&users, "u1", "u1", Role::User)
+        .await
+        .unwrap_err();
+
+    assert_eq!(error.code, StatusCode::FORBIDDEN);
+}
+
+#[tokio::test]
+async fn changing_role_of_unknown_user_is_not_found() {
+    let users = users();
+    let error = change_role(&users, "u1", "ghost", Role::Admin)
+        .await
+        .unwrap_err();
+
+    assert_eq!(error.code, StatusCode::NOT_FOUND);
+}
+
+async fn set_role_by_username(
+    users: &Arc<InMemoryUserRepository>,
+    username: &str,
+    role: Role,
+) -> Result<String, Error> {
+    SetRoleByUsernameUseCase {
+        user_repository: users.clone(),
+    }
+    .execute(SetRoleByUsernameUseCaseParams {
+        username: username.to_string(),
+        role,
+    })
+    .await
+    .map(|changed| changed.id)
+}
+
+#[tokio::test]
+async fn set_role_by_username_is_case_insensitive() {
+    let users = users();
+
+    let id = set_role_by_username(&users, " BOB ", Role::Admin)
+        .await
+        .unwrap();
+
+    assert_eq!(id, "u2");
+    assert_eq!(users.get("u2").unwrap().role, Role::Admin);
+    assert_eq!(users.get("u1").unwrap().role, Role::User);
+}
+
+#[tokio::test]
+async fn set_role_by_username_for_unknown_user_is_not_found() {
+    let users = users();
+    let error = set_role_by_username(&users, "nobody", Role::Admin)
+        .await
+        .unwrap_err();
+
+    assert_eq!(error.code, StatusCode::NOT_FOUND);
 }
