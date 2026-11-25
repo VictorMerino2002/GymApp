@@ -14,7 +14,7 @@ use crate::{
         ListExercisesUseCase, ListExercisesUseCaseParams, UpdateExerciseUseCase,
         UpdateExerciseUseCaseParams,
     },
-    domain::value_objects::Muscle,
+    domain::value_objects::{ExerciseCategory, Muscle},
     infrastructure::{
         bootstrap::AppState,
         http::{
@@ -27,6 +27,8 @@ use crate::{
 #[derive(Deserialize)]
 pub struct ExerciseRequest {
     name: String,
+    #[serde(default)]
+    category: ExerciseCategory,
     muscles: Vec<Muscle>,
     #[serde(default)]
     description: String,
@@ -40,6 +42,7 @@ impl From<ExerciseRequest> for ExerciseInput {
     fn from(request: ExerciseRequest) -> Self {
         Self {
             name: request.name,
+            category: request.category,
             muscles: request.muscles,
             description: request.description,
             instructions: request.instructions,
@@ -54,6 +57,7 @@ pub struct ListExercisesQuery {
     limit: Option<u16>,
     cursor: Option<String>,
     muscle: Option<Muscle>,
+    category: Option<ExerciseCategory>,
 }
 
 pub async fn list_exercises(
@@ -68,6 +72,7 @@ pub async fn list_exercises(
         limit: query.limit,
         cursor: query.cursor,
         muscle: query.muscle,
+        category: query.category,
     };
 
     let result = use_case.execute(params).await;

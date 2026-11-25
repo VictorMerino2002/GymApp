@@ -14,7 +14,7 @@ use std::sync::Arc;
 use crate::{
     domain::{
         entities::{Exercise, Session, User},
-        value_objects::{Author, Muscle},
+        value_objects::{Author, ExerciseCategory, Muscle},
     },
     infrastructure::{adapters::JwtEncoder, bootstrap::AppState},
 };
@@ -40,7 +40,15 @@ pub fn user(id: &str, username: &str) -> User {
 }
 
 pub fn exercise(id: &str, name: &str, muscles: Vec<Muscle>) -> Exercise {
-    let mut exercise = Exercise::new(name, muscles, "", vec![], None, None);
+    let mut exercise = Exercise::new(
+        name,
+        ExerciseCategory::Strength,
+        muscles,
+        "",
+        vec![],
+        None,
+        None,
+    );
     exercise.id = id.to_string();
     exercise
 }

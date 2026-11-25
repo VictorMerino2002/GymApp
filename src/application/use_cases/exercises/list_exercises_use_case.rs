@@ -4,7 +4,7 @@ use crate::{
     application::ports::repositories::ExerciseRepository,
     domain::{
         entities::Exercise,
-        value_objects::{Error, Muscle, Page},
+        value_objects::{Error, ExerciseCategory, Muscle, Page},
     },
 };
 
@@ -19,6 +19,7 @@ pub struct ListExercisesUseCaseParams {
     pub limit: Option<u16>,
     pub cursor: Option<String>,
     pub muscle: Option<Muscle>,
+    pub category: Option<ExerciseCategory>,
 }
 
 impl ListExercisesUseCase {
@@ -35,7 +36,12 @@ impl ListExercisesUseCase {
         }
 
         self.exercise_repository
-            .find_paginated(limit, params.cursor.as_deref(), params.muscle)
+            .find_paginated(
+                limit,
+                params.cursor.as_deref(),
+                params.muscle,
+                params.category,
+            )
             .await
     }
 }

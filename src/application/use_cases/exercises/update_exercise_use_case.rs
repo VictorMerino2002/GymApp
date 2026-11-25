@@ -29,6 +29,7 @@ impl UpdateExerciseUseCase {
 
         let input = params.exercise;
         exercise.name = input.name.trim().to_string();
+        exercise.category = input.category;
         exercise.muscles = input.muscles;
         exercise.description = input.description;
         exercise.instructions = input.instructions;

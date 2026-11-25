@@ -23,6 +23,7 @@ impl CreateExerciseUseCase {
         let input = params.exercise;
         let exercise = Exercise::new(
             input.name.trim(),
+            input.category,
             input.muscles,
             input.description,
             input.instructions,

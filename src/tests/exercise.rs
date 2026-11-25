@@ -18,7 +18,7 @@ use crate::{
     },
     domain::{
         entities::{ActivityKind, Exercise, ExerciseHistory, xp_for_level},
-        value_objects::{Error, Muscle, Page},
+        value_objects::{Error, ExerciseCategory, Muscle, Page},
     },
     tests::support::{
         InMemoryActivityRepository, InMemoryExerciseHistoryRepository, InMemoryExerciseRepository,
@@ -29,6 +29,7 @@ use crate::{
 fn input(name: &str, muscles: Vec<Muscle>) -> ExerciseInput {
     ExerciseInput {
         name: name.to_string(),
+        category: ExerciseCategory::Strength,
         muscles,
         description: "Lie on a bench".to_string(),
         instructions: vec!["Lower the bar".to_string(), "Press".to_string()],
@@ -68,6 +69,7 @@ async fn list(
     limit: Option<u16>,
     cursor: Option<String>,
     muscle: Option<Muscle>,
+    category: Option<ExerciseCategory>,
 ) -> Result<Page<Exercise>, Error> {
     ListExercisesUseCase {
         exercise_repository: repository.clone(),
@@ -76,6 +78,7 @@ async fn list(
         limit,
         cursor,
         muscle,
+        category,
     })
     .await
 }
@@ -121,6 +124,60 @@ async fn update_exercise_replaces_fields() {
     assert_eq!(updated.id, "bench");
     assert_eq!(updated.name, "Incline bench");
     assert_eq!(repository.get("bench").unwrap().muscles.len(), 2);
+}
+
+#[tokio::test]
+async fn exercises_keep_their_category() {
+    let repository = Arc::new(InMemoryExerciseRepository::default());
+    let created = create(
+        &repository,
+        ExerciseInput {
+            category: ExerciseCategory::Cardio,
+            ..input("Running", vec![Muscle::Quadriceps, Muscle::Calves])
+        },
+    )
+    .await
+    .unwrap();
+
+    assert_eq!(created.category, ExerciseCategory::Cardio);
+    assert_eq!(
+        repository.get(&created.id).unwrap().category,
+        ExerciseCategory::Cardio
+    );
+
+    let updated = update(
+        &repository,
+        &created.id,
+        ExerciseInput {
+            category: ExerciseCategory::Mobility,
+            ..input("Running drills", vec![Muscle::Calves])
+        },
+    )
+    .await
+    .unwrap();
+
+    assert_eq!(updated.category, ExerciseCategory::Mobility);
+}
+
+#[test]
+fn category_is_lowercase_and_defaults_to_strength() {
+    assert_eq!(
+        serde_json::to_string(&ExerciseCategory::Cardio).unwrap(),
+        "\"cardio\""
+    );
+
+    let legacy: Exercise = serde_json::from_value(serde_json::json!({
+        "id": "bench",
+        "name": "Bench",
+        "muscles": ["chest"],
+        "description": "",
+        "instructions": [],
+        "video_url": null,
+        "img_url": null,
+    }))
+    .unwrap();
+
+    assert_eq!(legacy.category, ExerciseCategory::Strength);
 }
 
 #[tokio::test]
@@ -183,7 +240,7 @@ async fn list_exercises_filters_and_paginates() {
         exercise("c", "Dips", vec![Muscle::Chest, Muscle::Triceps]),
     ]));
 
-    let first = list(&repository, Some(1), None, Some(Muscle::Chest))
+    let first = list(&repository, Some(1), None, Some(Muscle::Chest), None)
         .await
         .unwrap();
     let second = list(
@@ -191,6 +248,7 @@ async fn list_exercises_filters_and_paginates() {
         Some(1),
         first.next_cursor.clone(),
         Some(Muscle::Chest),
+        None,
     )
     .await
     .unwrap();
@@ -204,16 +262,16 @@ async fn list_exercises_filters_and_paginates() {
 async fn list_exercises_validates_limit() {
     let repository = Arc::new(InMemoryExerciseRepository::default());
 
-    assert!(list(&repository, None, None, None).await.is_ok());
+    assert!(list(&repository, None, None, None, None).await.is_ok());
     assert_eq!(
-        list(&repository, Some(0), None, None)
+        list(&repository, Some(0), None, None, None)
             .await
             .unwrap_err()
             .code,
         StatusCode::BAD_REQUEST
     );
     assert_eq!(
-        list(&repository, Some(101), None, None)
+        list(&repository, Some(101), None, None, None)
             .await
             .unwrap_err()
             .code,
@@ -430,4 +488,51 @@ async fn history_cannot_delete_another_users_entry() {
     assert_eq!(error.code, StatusCode::NOT_FOUND);
     assert_eq!(context.history.all().len(), 1);
     assert_eq!(context.users.get("u1").unwrap().stats.xp, 10);
+}
+
+#[tokio::test]
+async fn list_exercises_filters_by_category_and_muscle() {
+    let mut running = exercise("b", "Running", vec![Muscle::Quadriceps]);
+    running.category = ExerciseCategory::Cardio;
+    let mut rowing = exercise("c", "Rowing", vec![Muscle::UpperBack]);
+    rowing.category = ExerciseCategory::Cardio;
+    let repository = Arc::new(InMemoryExerciseRepository::with(vec![
+        exercise("a", "Squat", vec![Muscle::Quadriceps]),
+        running,
+        rowing,
+    ]));
+
+    let ids = |page: Page<Exercise>| page.items.into_iter().map(|e| e.id).collect::<Vec<_>>();
+
+    let cardio = list(
+        &repository,
+        None,
+        None,
+        None,
+        Some(ExerciseCategory::Cardio),
+    )
+    .await
+    .unwrap();
+    let cardio_legs = list(
+        &repository,
+        None,
+        None,
+        Some(Muscle::Quadriceps),
+        Some(ExerciseCategory::Cardio),
+    )
+    .await
+    .unwrap();
+    let strength = list(
+        &repository,
+        None,
+        None,
+        None,
+        Some(ExerciseCategory::Strength),
+    )
+    .await
+    .unwrap();
+
+    assert_eq!(ids(cardio), ["b", "c"]);
+    assert_eq!(ids(cardio_legs), ["b"]);
+    assert_eq!(ids(strength), ["a"]);
 }

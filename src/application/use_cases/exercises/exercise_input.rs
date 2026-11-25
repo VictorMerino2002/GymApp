@@ -1,7 +1,8 @@
-use crate::domain::value_objects::{Error, Muscle};
+use crate::domain::value_objects::{Error, ExerciseCategory, Muscle};
 
 pub struct ExerciseInput {
     pub name: String,
+    pub category: ExerciseCategory,
     pub muscles: Vec<Muscle>,
     pub description: String,
     pub instructions: Vec<String>,
