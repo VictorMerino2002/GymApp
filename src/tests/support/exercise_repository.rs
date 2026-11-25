@@ -6,7 +6,7 @@ use crate::{
     application::ports::repositories::ExerciseRepository,
     domain::{
         entities::Exercise,
-        value_objects::{Error, ExerciseCategory, Muscle, Page},
+        value_objects::{Equipment, Error, ExerciseCategory, Muscle, Page},
     },
 };
 
@@ -60,6 +60,7 @@ impl ExerciseRepository for InMemoryExerciseRepository {
         cursor: Option<&str>,
         muscle: Option<Muscle>,
         category: Option<ExerciseCategory>,
+        equipment: Option<Equipment>,
     ) -> Result<Page<Exercise>, Error> {
         let matching: Vec<Exercise> = self
             .exercises
@@ -73,6 +74,7 @@ impl ExerciseRepository for InMemoryExerciseRepository {
                 })
             })
             .filter(|e| category.is_none_or(|c| e.category == c))
+            .filter(|e| equipment.is_none_or(|q| e.equipment.contains(&q)))
             .cloned()
             .collect();
 

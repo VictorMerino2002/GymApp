@@ -1,5 +1,6 @@
 mod author;
 mod difficulty_level;
+mod equipment;
 mod error;
 mod exercise_category;
 mod jwt;
@@ -10,6 +11,7 @@ mod role;
 
 pub use author::Author;
 pub use difficulty_level::DifficultyLevel;
+pub use equipment::Equipment;
 pub use error::Error;
 pub use exercise_category::ExerciseCategory;
 pub use jwt::{Jwt, TokenType};

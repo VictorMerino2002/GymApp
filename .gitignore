@@ -1,3 +1,4 @@
 /target
 deploy.sh
 .serverless
+/src/bin/seed-exercises/

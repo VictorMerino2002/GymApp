@@ -14,7 +14,7 @@ use crate::{
         ListExercisesUseCase, ListExercisesUseCaseParams, UpdateExerciseUseCase,
         UpdateExerciseUseCaseParams,
     },
-    domain::value_objects::{ExerciseCategory, Muscle},
+    domain::value_objects::{Equipment, ExerciseCategory, Muscle},
     infrastructure::{
         bootstrap::AppState,
         http::{
@@ -33,6 +33,8 @@ pub struct ExerciseRequest {
     #[serde(default)]
     secondary_muscles: Vec<Muscle>,
     #[serde(default)]
+    equipment: Vec<Equipment>,
+    #[serde(default)]
     description: String,
     #[serde(default)]
     instructions: Vec<String>,
@@ -47,6 +49,7 @@ impl From<ExerciseRequest> for ExerciseInput {
             category: request.category,
             primary_muscles: request.primary_muscles,
             secondary_muscles: request.secondary_muscles,
+            equipment: request.equipment,
             description: request.description,
             instructions: request.instructions,
             video_url: request.video_url,
@@ -61,6 +64,7 @@ pub struct ListExercisesQuery {
     cursor: Option<String>,
     muscle: Option<Muscle>,
     category: Option<ExerciseCategory>,
+    equipment: Option<Equipment>,
 }
 
 pub async fn list_exercises(
@@ -76,6 +80,7 @@ pub async fn list_exercises(
         cursor: query.cursor,
         muscle: query.muscle,
         category: query.category,
+        equipment: query.equipment,
     };
 
     let result = use_case.execute(params).await;

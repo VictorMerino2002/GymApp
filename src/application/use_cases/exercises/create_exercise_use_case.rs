@@ -26,6 +26,7 @@ impl CreateExerciseUseCase {
             input.category,
             input.primary_muscles,
             input.secondary_muscles,
+            input.equipment,
             input.description,
             input.instructions,
             input.video_url,

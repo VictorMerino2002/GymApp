@@ -5,7 +5,7 @@ use crate::{
     application::ports::repositories::ExerciseRepository,
     domain::{
         entities::Exercise,
-        value_objects::{Error, ExerciseCategory, Muscle, Page},
+        value_objects::{Equipment, Error, ExerciseCategory, Muscle, Page},
     },
     infrastructure::adapters::repositories::{
         dynamodb_batch::batch_get_by_ids,
@@ -83,12 +83,17 @@ impl ExerciseRepository for DynamodbExerciseRepository {
         cursor: Option<&str>,
         muscle: Option<Muscle>,
         category: Option<ExerciseCategory>,
+        equipment: Option<Equipment>,
     ) -> Result<Page<Exercise>, Error> {
         let muscle = muscle.map(muscle_value).transpose()?;
         let category_value = category
             .map(serde_dynamo::to_attribute_value::<_, AttributeValue>)
             .transpose()
             .map_err(|_| Error::internal_server("Could not build category filter"))?;
+        let equipment_value = equipment
+            .map(serde_dynamo::to_attribute_value::<_, AttributeValue>)
+            .transpose()
+            .map_err(|_| Error::internal_server("Could not build equipment filter"))?;
 
         let mut conditions = Vec::new();
         if muscle.is_some() {
@@ -102,6 +107,9 @@ impl ExerciseRepository for DynamodbExerciseRepository {
             }
             Some(_) => conditions.push("#category = :category"),
             None => {}
+        }
+        if equipment_value.is_some() {
+            conditions.push("contains(#equipment, :equipment)");
         }
         let filter_expression = conditions.join(" AND ");
 
@@ -129,6 +137,12 @@ impl ExerciseRepository for DynamodbExerciseRepository {
                 request = request
                     .expression_attribute_names("#category", "category")
                     .expression_attribute_values(":category", category.clone());
+            }
+
+            if let Some(equipment) = &equipment_value {
+                request = request
+                    .expression_attribute_names("#equipment", "equipment")
+                    .expression_attribute_values(":equipment", equipment.clone());
             }
 
             async move {

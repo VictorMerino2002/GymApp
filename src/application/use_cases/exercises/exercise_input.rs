@@ -1,12 +1,13 @@
 use std::collections::HashSet;
 
-use crate::domain::value_objects::{Error, ExerciseCategory, Muscle};
+use crate::domain::value_objects::{Equipment, Error, ExerciseCategory, Muscle};
 
 pub struct ExerciseInput {
     pub name: String,
     pub category: ExerciseCategory,
     pub primary_muscles: Vec<Muscle>,
     pub secondary_muscles: Vec<Muscle>,
+    pub equipment: Vec<Equipment>,
     pub description: String,
     pub instructions: Vec<String>,
     pub video_url: Option<String>,
@@ -31,6 +32,16 @@ pub fn validate_exercise(input: &ExerciseInput) -> Result<(), Error> {
         return Err(Error::bad_request(
             "a muscle can only appear once across primary_muscles and secondary_muscles",
         ));
+    }
+
+    let mut seen_equipment = HashSet::new();
+
+    if !input
+        .equipment
+        .iter()
+        .all(|item| seen_equipment.insert(item))
+    {
+        return Err(Error::bad_request("equipment must not repeat"));
     }
 
     Ok(())

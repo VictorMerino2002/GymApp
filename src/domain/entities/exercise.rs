@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::domain::value_objects::{ExerciseCategory, Muscle};
+use crate::domain::value_objects::{Equipment, ExerciseCategory, Muscle};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Exercise {
@@ -13,6 +13,8 @@ pub struct Exercise {
     pub primary_muscles: Vec<Muscle>,
     #[serde(default)]
     pub secondary_muscles: Vec<Muscle>,
+    #[serde(default)]
+    pub equipment: Vec<Equipment>,
     pub description: String,
     pub instructions: Vec<String>,
     pub video_url: Option<String>,
@@ -26,6 +28,7 @@ impl Exercise {
         category: ExerciseCategory,
         primary_muscles: Vec<Muscle>,
         secondary_muscles: Vec<Muscle>,
+        equipment: Vec<Equipment>,
         description: impl Into<String>,
         instructions: Vec<String>,
         video_url: Option<String>,
@@ -37,6 +40,7 @@ impl Exercise {
             category,
             primary_muscles,
             secondary_muscles,
+            equipment,
             description: description.into(),
             instructions,
             video_url,

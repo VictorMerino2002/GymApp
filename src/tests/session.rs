@@ -45,7 +45,7 @@ impl Context {
             sessions: Arc::new(InMemorySessionRepository::with(vec![session("s1", "Push")])),
             exercises: Arc::new(InMemoryExerciseRepository::with(vec![
                 exercise("bench", "Bench", vec![Muscle::Chest, Muscle::Triceps]),
-                exercise("dips", "Dips", vec![Muscle::Triceps, Muscle::Shoulders]),
+                exercise("dips", "Dips", vec![Muscle::Triceps, Muscle::FrontDelts]),
             ])),
             fav_sessions: Arc::default(),
             activities: Arc::default(),
@@ -169,7 +169,7 @@ async fn update_session_replaces_name_exercises_and_muscles() {
 
     assert_eq!(updated.name, "Triceps");
     assert_eq!(updated.exercises.len(), 1);
-    assert_eq!(updated.muscles, [Muscle::Triceps, Muscle::Shoulders]);
+    assert_eq!(updated.muscles, [Muscle::Triceps, Muscle::FrontDelts]);
     assert_eq!(context.sessions.get("s1").unwrap().name, "Triceps");
 }
 

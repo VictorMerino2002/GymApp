@@ -32,6 +32,7 @@ impl UpdateExerciseUseCase {
         exercise.category = input.category;
         exercise.primary_muscles = input.primary_muscles;
         exercise.secondary_muscles = input.secondary_muscles;
+        exercise.equipment = input.equipment;
         exercise.description = input.description;
         exercise.instructions = input.instructions;
         exercise.video_url = input.video_url;

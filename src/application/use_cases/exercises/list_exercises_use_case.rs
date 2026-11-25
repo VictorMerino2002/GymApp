@@ -4,7 +4,7 @@ use crate::{
     application::ports::repositories::ExerciseRepository,
     domain::{
         entities::Exercise,
-        value_objects::{Error, ExerciseCategory, Muscle, Page},
+        value_objects::{Equipment, Error, ExerciseCategory, Muscle, Page},
     },
 };
 
@@ -20,6 +20,7 @@ pub struct ListExercisesUseCaseParams {
     pub cursor: Option<String>,
     pub muscle: Option<Muscle>,
     pub category: Option<ExerciseCategory>,
+    pub equipment: Option<Equipment>,
 }
 
 impl ListExercisesUseCase {
@@ -41,6 +42,7 @@ impl ListExercisesUseCase {
                 params.cursor.as_deref(),
                 params.muscle,
                 params.category,
+                params.equipment,
             )
             .await
     }

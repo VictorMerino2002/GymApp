@@ -47,6 +47,7 @@ pub fn exercise(id: &str, name: &str, muscles: Vec<Muscle>) -> Exercise {
         ExerciseCategory::Strength,
         muscles,
         vec![],
+        vec![],
         "",
         vec![],
         None,

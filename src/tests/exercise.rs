@@ -18,7 +18,7 @@ use crate::{
     },
     domain::{
         entities::{ActivityKind, Exercise, ExerciseHistory, xp_for_level},
-        value_objects::{Error, ExerciseCategory, Muscle, Page},
+        value_objects::{Equipment, Error, ExerciseCategory, Muscle, Page},
     },
     tests::support::{
         InMemoryActivityRepository, InMemoryExerciseHistoryRepository, InMemoryExerciseRepository,
@@ -32,6 +32,7 @@ fn input(name: &str, muscles: Vec<Muscle>) -> ExerciseInput {
         category: ExerciseCategory::Strength,
         primary_muscles: muscles,
         secondary_muscles: vec![],
+        equipment: vec![],
         description: "Lie on a bench".to_string(),
         instructions: vec!["Lower the bar".to_string(), "Press".to_string()],
         video_url: None,
@@ -72,15 +73,27 @@ async fn list(
     muscle: Option<Muscle>,
     category: Option<ExerciseCategory>,
 ) -> Result<Page<Exercise>, Error> {
+    list_with(
+        repository,
+        ListExercisesUseCaseParams {
+            limit,
+            cursor,
+            muscle,
+            category,
+            equipment: None,
+        },
+    )
+    .await
+}
+
+async fn list_with(
+    repository: &Arc<InMemoryExerciseRepository>,
+    params: ListExercisesUseCaseParams,
+) -> Result<Page<Exercise>, Error> {
     ListExercisesUseCase {
         exercise_repository: repository.clone(),
     }
-    .execute(ListExercisesUseCaseParams {
-        limit,
-        cursor,
-        muscle,
-        category,
-    })
+    .execute(params)
     .await
 }
 
@@ -117,7 +130,7 @@ async fn update_exercise_replaces_fields() {
     let updated = update(
         &repository,
         "bench",
-        input("Incline bench", vec![Muscle::Chest, Muscle::Shoulders]),
+        input("Incline bench", vec![Muscle::Chest, Muscle::FrontDelts]),
     )
     .await
     .unwrap();
@@ -549,7 +562,7 @@ async fn create_exercise_stores_primary_and_secondary_muscles() {
     let created = create(
         &repository,
         ExerciseInput {
-            secondary_muscles: vec![Muscle::Triceps, Muscle::Shoulders],
+            secondary_muscles: vec![Muscle::Triceps, Muscle::FrontDelts],
             ..input("Bench", vec![Muscle::Chest])
         },
     )
@@ -560,7 +573,7 @@ async fn create_exercise_stores_primary_and_secondary_muscles() {
     assert_eq!(stored.primary_muscles, [Muscle::Chest]);
     assert_eq!(
         stored.secondary_muscles,
-        [Muscle::Triceps, Muscle::Shoulders]
+        [Muscle::Triceps, Muscle::FrontDelts]
     );
 }
 
@@ -605,4 +618,104 @@ async fn list_exercises_muscle_filter_matches_secondary_muscles() {
 
     let ids: Vec<String> = page.items.into_iter().map(|e| e.id).collect();
     assert_eq!(ids, ["a", "b"]);
+}
+
+#[tokio::test]
+async fn create_exercise_stores_equipment() {
+    let repository = Arc::new(InMemoryExerciseRepository::default());
+    let created = create(
+        &repository,
+        ExerciseInput {
+            equipment: vec![Equipment::Dumbbell, Equipment::Bench],
+            ..input("Dumbbell bench press", vec![Muscle::Chest])
+        },
+    )
+    .await
+    .unwrap();
+
+    assert_eq!(
+        repository.get(&created.id).unwrap().equipment,
+        [Equipment::Dumbbell, Equipment::Bench]
+    );
+}
+
+#[tokio::test]
+async fn exercise_equipment_must_not_repeat() {
+    let repository = Arc::new(InMemoryExerciseRepository::default());
+    let error = create(
+        &repository,
+        ExerciseInput {
+            equipment: vec![Equipment::Bench, Equipment::Bench],
+            ..input("Bench", vec![Muscle::Chest])
+        },
+    )
+    .await
+    .unwrap_err();
+
+    assert_eq!(error.code, StatusCode::BAD_REQUEST);
+}
+
+#[tokio::test]
+async fn list_exercises_filters_by_equipment() {
+    let mut press = exercise("a", "Dumbbell press", vec![Muscle::Chest]);
+    press.equipment = vec![Equipment::Dumbbell, Equipment::Bench];
+    let mut curl = exercise("b", "Curl", vec![Muscle::Biceps]);
+    curl.equipment = vec![Equipment::Dumbbell];
+    let mut pushup = exercise("c", "Push-up", vec![Muscle::Chest]);
+    pushup.equipment = vec![Equipment::BodyWeight];
+    let repository = Arc::new(InMemoryExerciseRepository::with(vec![press, curl, pushup]));
+
+    let ids = |page: Page<Exercise>| page.items.into_iter().map(|e| e.id).collect::<Vec<_>>();
+    let filter = |muscle, equipment| ListExercisesUseCaseParams {
+        limit: None,
+        cursor: None,
+        muscle,
+        category: None,
+        equipment: Some(equipment),
+    };
+
+    let dumbbell = list_with(&repository, filter(None, Equipment::Dumbbell))
+        .await
+        .unwrap();
+    let chest_dumbbell = list_with(
+        &repository,
+        filter(Some(Muscle::Chest), Equipment::Dumbbell),
+    )
+    .await
+    .unwrap();
+    let bench = list_with(&repository, filter(None, Equipment::Bench))
+        .await
+        .unwrap();
+
+    assert_eq!(ids(dumbbell), ["a", "b"]);
+    assert_eq!(ids(chest_dumbbell), ["a"]);
+    assert_eq!(ids(bench), ["a"]);
+}
+
+#[test]
+fn legacy_shoulders_value_is_read_as_front_delts() {
+    assert_eq!(
+        serde_json::from_str::<Muscle>("\"shoulders\"").unwrap(),
+        Muscle::FrontDelts
+    );
+    assert_eq!(
+        serde_json::to_string(&Muscle::FrontDelts).unwrap(),
+        "\"front_delts\""
+    );
+}
+
+#[test]
+fn legacy_exercise_without_equipment_reads_as_empty() {
+    let legacy: Exercise = serde_json::from_value(serde_json::json!({
+        "id": "bench",
+        "name": "Bench",
+        "primary_muscles": ["chest"],
+        "description": "",
+        "instructions": [],
+        "video_url": null,
+        "img_url": null,
+    }))
+    .unwrap();
+
+    assert!(legacy.equipment.is_empty());
 }

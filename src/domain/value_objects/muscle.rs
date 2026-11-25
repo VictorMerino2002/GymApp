@@ -4,8 +4,13 @@ use serde::{Deserialize, Serialize};
 #[serde(rename_all = "snake_case")]
 pub enum Muscle {
     Chest,
-    Shoulders,
+    #[serde(alias = "shoulders")]
+    FrontDelts,
+    SideDelts,
+    RearDelts,
+    RotatorCuff,
     Traps,
+    Neck,
     UpperBack,
     Lats,
     LowerBack,
@@ -14,10 +19,13 @@ pub enum Muscle {
     Forearms,
     Abs,
     Obliques,
+    Serratus,
+    HipFlexors,
     Glutes,
     Quadriceps,
     Hamstrings,
     Adductors,
     Abductors,
     Calves,
+    Tibialis,
 }
