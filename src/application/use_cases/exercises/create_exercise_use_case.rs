@@ -24,7 +24,8 @@ impl CreateExerciseUseCase {
         let exercise = Exercise::new(
             input.name.trim(),
             input.category,
-            input.muscles,
+            input.primary_muscles,
+            input.secondary_muscles,
             input.description,
             input.instructions,
             input.video_url,

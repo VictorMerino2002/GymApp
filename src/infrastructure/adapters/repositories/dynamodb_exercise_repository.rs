@@ -92,7 +92,9 @@ impl ExerciseRepository for DynamodbExerciseRepository {
 
         let mut conditions = Vec::new();
         if muscle.is_some() {
-            conditions.push("contains(#muscles, :muscle)");
+            conditions.push(
+                "(contains(#primary, :muscle) OR contains(#secondary, :muscle) OR contains(#legacy, :muscle))",
+            );
         }
         match category {
             Some(ExerciseCategory::Strength) => {
@@ -117,7 +119,9 @@ impl ExerciseRepository for DynamodbExerciseRepository {
 
             if let Some(muscle) = &muscle {
                 request = request
-                    .expression_attribute_names("#muscles", "muscles")
+                    .expression_attribute_names("#primary", "primary_muscles")
+                    .expression_attribute_names("#secondary", "secondary_muscles")
+                    .expression_attribute_names("#legacy", "muscles")
                     .expression_attribute_values(":muscle", muscle.clone());
             }
 

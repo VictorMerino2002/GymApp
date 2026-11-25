@@ -30,7 +30,8 @@ impl UpdateExerciseUseCase {
         let input = params.exercise;
         exercise.name = input.name.trim().to_string();
         exercise.category = input.category;
-        exercise.muscles = input.muscles;
+        exercise.primary_muscles = input.primary_muscles;
+        exercise.secondary_muscles = input.secondary_muscles;
         exercise.description = input.description;
         exercise.instructions = input.instructions;
         exercise.video_url = input.video_url;

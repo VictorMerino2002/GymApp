@@ -30,7 +30,8 @@ fn input(name: &str, muscles: Vec<Muscle>) -> ExerciseInput {
     ExerciseInput {
         name: name.to_string(),
         category: ExerciseCategory::Strength,
-        muscles,
+        primary_muscles: muscles,
+        secondary_muscles: vec![],
         description: "Lie on a bench".to_string(),
         instructions: vec!["Lower the bar".to_string(), "Press".to_string()],
         video_url: None,
@@ -123,7 +124,7 @@ async fn update_exercise_replaces_fields() {
 
     assert_eq!(updated.id, "bench");
     assert_eq!(updated.name, "Incline bench");
-    assert_eq!(repository.get("bench").unwrap().muscles.len(), 2);
+    assert_eq!(repository.get("bench").unwrap().primary_muscles.len(), 2);
 }
 
 #[tokio::test]
@@ -160,7 +161,7 @@ async fn exercises_keep_their_category() {
 }
 
 #[test]
-fn category_is_lowercase_and_defaults_to_strength() {
+fn legacy_exercise_defaults_to_strength_with_muscles_as_primary() {
     assert_eq!(
         serde_json::to_string(&ExerciseCategory::Cardio).unwrap(),
         "\"cardio\""
@@ -178,6 +179,8 @@ fn category_is_lowercase_and_defaults_to_strength() {
     .unwrap();
 
     assert_eq!(legacy.category, ExerciseCategory::Strength);
+    assert_eq!(legacy.primary_muscles, [Muscle::Chest]);
+    assert!(legacy.secondary_muscles.is_empty());
 }
 
 #[tokio::test]
@@ -193,7 +196,10 @@ async fn update_exercise_errors() {
 
     assert_eq!(missing.unwrap_err().code, StatusCode::NOT_FOUND);
     assert_eq!(invalid.unwrap_err().code, StatusCode::BAD_REQUEST);
-    assert_eq!(repository.get("bench").unwrap().muscles, [Muscle::Chest]);
+    assert_eq!(
+        repository.get("bench").unwrap().primary_muscles,
+        [Muscle::Chest]
+    );
 }
 
 #[tokio::test]
@@ -535,4 +541,68 @@ async fn list_exercises_filters_by_category_and_muscle() {
     assert_eq!(ids(cardio), ["b", "c"]);
     assert_eq!(ids(cardio_legs), ["b"]);
     assert_eq!(ids(strength), ["a"]);
+}
+
+#[tokio::test]
+async fn create_exercise_stores_primary_and_secondary_muscles() {
+    let repository = Arc::new(InMemoryExerciseRepository::default());
+    let created = create(
+        &repository,
+        ExerciseInput {
+            secondary_muscles: vec![Muscle::Triceps, Muscle::Shoulders],
+            ..input("Bench", vec![Muscle::Chest])
+        },
+    )
+    .await
+    .unwrap();
+
+    let stored = repository.get(&created.id).unwrap();
+    assert_eq!(stored.primary_muscles, [Muscle::Chest]);
+    assert_eq!(
+        stored.secondary_muscles,
+        [Muscle::Triceps, Muscle::Shoulders]
+    );
+}
+
+#[tokio::test]
+async fn exercise_muscles_must_not_repeat() {
+    let repository = Arc::new(InMemoryExerciseRepository::default());
+    let invalid = [
+        ExerciseInput {
+            secondary_muscles: vec![Muscle::Chest],
+            ..input("Bench", vec![Muscle::Chest])
+        },
+        input("Bench", vec![Muscle::Chest, Muscle::Chest]),
+        ExerciseInput {
+            secondary_muscles: vec![Muscle::Triceps, Muscle::Triceps],
+            ..input("Bench", vec![Muscle::Chest])
+        },
+        ExerciseInput {
+            secondary_muscles: vec![Muscle::Triceps],
+            ..input("Bench", vec![])
+        },
+    ];
+
+    for exercise in invalid {
+        let error = create(&repository, exercise).await.unwrap_err();
+        assert_eq!(error.code, StatusCode::BAD_REQUEST);
+    }
+}
+
+#[tokio::test]
+async fn list_exercises_muscle_filter_matches_secondary_muscles() {
+    let mut bench = exercise("a", "Bench", vec![Muscle::Chest]);
+    bench.secondary_muscles = vec![Muscle::Triceps];
+    let repository = Arc::new(InMemoryExerciseRepository::with(vec![
+        bench,
+        exercise("b", "Pushdown", vec![Muscle::Triceps]),
+        exercise("c", "Squat", vec![Muscle::Quadriceps]),
+    ]));
+
+    let page = list(&repository, None, None, Some(Muscle::Triceps), None)
+        .await
+        .unwrap();
+
+    let ids: Vec<String> = page.items.into_iter().map(|e| e.id).collect();
+    assert_eq!(ids, ["a", "b"]);
 }

@@ -29,7 +29,9 @@ pub struct ExerciseRequest {
     name: String,
     #[serde(default)]
     category: ExerciseCategory,
-    muscles: Vec<Muscle>,
+    primary_muscles: Vec<Muscle>,
+    #[serde(default)]
+    secondary_muscles: Vec<Muscle>,
     #[serde(default)]
     description: String,
     #[serde(default)]
@@ -43,7 +45,8 @@ impl From<ExerciseRequest> for ExerciseInput {
         Self {
             name: request.name,
             category: request.category,
-            muscles: request.muscles,
+            primary_muscles: request.primary_muscles,
+            secondary_muscles: request.secondary_muscles,
             description: request.description,
             instructions: request.instructions,
             video_url: request.video_url,

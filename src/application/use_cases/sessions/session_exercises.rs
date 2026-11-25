@@ -65,7 +65,14 @@ pub fn build_session_exercises(
 pub fn collect_muscles(catalog: &[Exercise]) -> Vec<Muscle> {
     let mut muscles = Vec::new();
 
-    for muscle in catalog.iter().flat_map(|exercise| &exercise.muscles) {
+    let primary = catalog
+        .iter()
+        .flat_map(|exercise| &exercise.primary_muscles);
+    let secondary = catalog
+        .iter()
+        .flat_map(|exercise| &exercise.secondary_muscles);
+
+    for muscle in primary.chain(secondary) {
         if !muscles.contains(muscle) {
             muscles.push(*muscle);
         }

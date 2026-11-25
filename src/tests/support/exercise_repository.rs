@@ -67,7 +67,11 @@ impl ExerciseRepository for InMemoryExerciseRepository {
             .unwrap()
             .values()
             .filter(|e| cursor.is_none_or(|c| e.id.as_str() > c))
-            .filter(|e| muscle.is_none_or(|m| e.muscles.contains(&m)))
+            .filter(|e| {
+                muscle.is_none_or(|m| {
+                    e.primary_muscles.contains(&m) || e.secondary_muscles.contains(&m)
+                })
+            })
             .filter(|e| category.is_none_or(|c| e.category == c))
             .cloned()
             .collect();

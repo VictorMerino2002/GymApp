@@ -268,3 +268,26 @@ async fn complete_unknown_session_is_not_found() {
     assert_eq!(context.users.get("u1").unwrap().stats.xp, 0);
     assert!(context.activities.all().is_empty());
 }
+
+#[tokio::test]
+async fn session_muscles_list_primary_before_secondary() {
+    let context = Context::new();
+    let mut squat = exercise("squat", "Squat", vec![Muscle::Quadriceps]);
+    squat.secondary_muscles = vec![Muscle::Glutes, Muscle::Chest];
+    context.exercises.insert(squat);
+
+    let created = context
+        .create("Mixed", vec![set("squat", 3, 5), set("bench", 3, 8)])
+        .await
+        .unwrap();
+
+    assert_eq!(
+        created.muscles,
+        [
+            Muscle::Quadriceps,
+            Muscle::Chest,
+            Muscle::Triceps,
+            Muscle::Glutes
+        ]
+    );
+}
