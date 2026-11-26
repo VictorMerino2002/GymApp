@@ -19,7 +19,10 @@ use axum::{
     routing::{get, post, put},
 };
 
-use crate::infrastructure::{bootstrap::AppState, http::extractors::AuthUser};
+use crate::infrastructure::{
+    bootstrap::AppState,
+    http::{cors::cors_layer, extractors::AuthUser},
+};
 
 pub fn router(app_state: Arc<AppState>) -> Router {
     let public_routes = Router::new()
@@ -116,5 +119,8 @@ pub fn router(app_state: Arc<AppState>) -> Router {
         )
         .route_layer(from_extractor_with_state::<AuthUser, _>(app_state.clone()));
 
-    public_routes.merge(protected_routes).with_state(app_state)
+    public_routes
+        .merge(protected_routes)
+        .with_state(app_state)
+        .layer(cors_layer())
 }

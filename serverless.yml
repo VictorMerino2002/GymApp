@@ -9,6 +9,21 @@ provider:
   memorySize: 256
   timeout: 10
   logRetentionInDays: 14
+  httpApi:
+    cors:
+      allowedOrigins: ${self:custom.cors.origins.${sls:stage}}
+      allowedHeaders:
+        - Content-Type
+        - Authorization
+      allowedMethods:
+        - GET
+        - POST
+        - PUT
+        - PATCH
+        - DELETE
+        - OPTIONS
+      allowCredentials: false
+      maxAge: 600
   environment:
     RUST_LOG: info
     JWT_SECRET: ${ssm:/${self:service}/${sls:stage}/jwt-secret}
@@ -47,6 +62,11 @@ provider:
             - !Join ['', [!GetAtt MediaBucket.Arn, '/*']]
 
 custom:
+  cors:
+    origins:
+      dev:
+        - http://localhost:5173
+        - http://localhost:4173
   throttling:
     default:
       rate: 50
